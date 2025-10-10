@@ -47,13 +47,17 @@ Message::Message(CCI_RangeAndBearingSensor::SPacket packet) {
     } else
         index += 2;
 
-    if(packet.Data[index] != 255) {
+    /* To */
+    UInt8 toSize = packet.Data[index++];
+    if(toSize == 255) // Safety check value
+        toSize = 0;
+    
+    for(size_t i = 0; i < toSize; i++) {
         std::string robotID;
         robotID += (char)packet.Data[index++];            // First char of ID
         robotID += std::to_string(packet.Data[index++]);  // ID number
-        emsg.to = robotID;
-    } else
-        index += 2;
+        emsg.to.push_back(robotID);
+    }
 
 }
 
@@ -97,11 +101,10 @@ CByteArray Message::GetCByteArray() {
         arr[index++] = stoi(emsg.from.substr(1)); // ID
     }
 
-    if( emsg.to.empty() )
-        index += 2; // Skip
-    else {
-        arr[index++] = emsg.to[0];              // ID
-        arr[index++] = stoi(emsg.to.substr(1)); // ID
+    arr[index++] = emsg.to.size();
+    for(const auto& id : emsg.to) {
+        arr[index++] = id[0];              // ID
+        arr[index++] = stoi(id.substr(1)); // ID
     }
 
     return arr;
@@ -162,7 +165,11 @@ void Message::Print() const {
     // } else
     //     std::cout << "state: " << std::endl;
     std::cout << "energyFrom: " << emsg.from << std::endl;
-    std::cout << "energyTo: " << emsg.to << std::endl;
+    std::cout << "energyTo: ";
+    for(const auto& id : emsg.to) {
+        std::cout << id << " ";
+    }
+    std::cout << std::endl;
 
     std::cout << std::endl;
 

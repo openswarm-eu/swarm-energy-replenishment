@@ -381,7 +381,8 @@ void CCharger::ControlStep() {
     // emsg.owner = this->GetId();
     // emsg.state = currentState;
     emsg.from = strEnergyFrom;
-    emsg.to = strEnergyTo;
+    if(strEnergyTo != "")
+        emsg.to.push_back(strEnergyTo);
     msg.emsg = emsg;
 
     cbyte_msg = msg.GetCByteArray();

@@ -1039,7 +1039,8 @@ void CWorkerMC::ControlStep() {
     if(Check_HighEnergy(nullptr))
         strEnergyFrom = ""; // Reset to stop receiving energy
     emsg.from = strEnergyFrom;
-    emsg.to = strEnergyTo;
+    if(strEnergyTo != "")
+        emsg.to.push_back(strEnergyTo);
     msg.emsg = emsg;
 
     // RLOG << "requestingEnergy? " << bRequestingEnergy << std::endl;
@@ -1209,7 +1210,7 @@ void CWorkerMC::CheckEnergyProvider() {
     if( !strEnergyFrom.empty() ) {
         for(const auto& msg : chargerMsgs) {
             // RLOG << "Checking msg.ID:" << msg.ID << " = from: " << strEnergyFrom << std::endl;
-            if(msg.ID == strEnergyFrom && msg.emsg.to == this->GetId()) { // Is it still willing to share energy?
+            if(msg.ID == strEnergyFrom && std::find(msg.emsg.to.begin(), msg.emsg.to.end(), this->GetId()) != msg.emsg.to.end()) { // Is it still willing to share energy?
                 m_fDistToMC = msg.direction.Length();
                 RLOG << "Energy provider still " << msg.ID << ", dist = " << m_fDistToMC << std::endl;
                 return;
@@ -1222,7 +1223,7 @@ void CWorkerMC::CheckEnergyProvider() {
     /* Find a new energy provider */
     Message closestProviderMsg;
     for(const auto& msg : chargerMsgs) {
-        if(msg.emsg.to == this->GetId()) {
+        if(std::find(msg.emsg.to.begin(), msg.emsg.to.end(), this->GetId()) != msg.emsg.to.end()) {
             if(closestProviderMsg.Empty() || msg.direction.Length() < closestProviderMsg.direction.Length()) {
                 closestProviderMsg = msg;
                 strEnergyFrom = msg.ID;
