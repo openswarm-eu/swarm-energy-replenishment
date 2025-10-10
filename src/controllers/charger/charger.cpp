@@ -134,7 +134,7 @@ void CCharger::Init(TConfigurationNode& t_node) {
     bSharingEnergy = false;
     bRequestingEnergy = false;
     strEnergyFrom = "";
-    strEnergyTo = "";
+    strEnergyTo.clear();
     fDistSE = 10000; // TEMP very large value
 
     m_fDeltaPos = 0.03; // TEMP value. Set using SetMoveDischargeRate()
@@ -232,7 +232,7 @@ bool CCharger::IsSharingEnergy() const {
 /****************************************/
 
 std::vector<std::string> CCharger::GetEnergyTo() const {
-    return std::vector<std::string>{strEnergyTo};
+    return strEnergyTo;
 }
 
 /****************************************/
@@ -381,8 +381,7 @@ void CCharger::ControlStep() {
     // emsg.owner = this->GetId();
     // emsg.state = currentState;
     emsg.from = strEnergyFrom;
-    if(strEnergyTo != "")
-        emsg.to.push_back(strEnergyTo);
+    emsg.to = strEnergyTo;
     msg.emsg = emsg;
 
     cbyte_msg = msg.GetCByteArray();
@@ -405,7 +404,7 @@ void CCharger::ResetVariables() {
 
     /* Energy sharing */
     bOtherLowEnergy = false;
-    bAgreedToShareEnergy = false;
+    bAgreedToShareEnergy.clear();
     fDistSE = 10000;
 
     lastControllableAction = "";
@@ -452,7 +451,7 @@ void CCharger::Update() {
     /* Check whether there are any workers who are requesting energy */
     if( !bSharingEnergy ) { 
         // Don't search for workers requesting energy when its own energy is low
-        strEnergyTo = "";
+        strEnergyTo.clear();
     } else {
         // 1) Check the distance to the current target (follower) it wants to share energy to
             // 1-1) Stop sharing energy if the target has high energy
@@ -462,36 +461,34 @@ void CCharger::Update() {
         // 4) Search for signal from leader
 
         for(const auto& msg : workerMsgs) {
-            if(strEnergyTo == msg.ID) {
+            if(std::find(strEnergyTo.begin(), strEnergyTo.end(), msg.ID) != strEnergyTo.end()) {
                 if( !msg.emsg.requestingEnergy || msg.emsg.from != this->GetId() ) {
-                    strEnergyTo = "";
+                    strEnergyTo.erase(std::remove(strEnergyTo.begin(), strEnergyTo.end(), msg.ID), strEnergyTo.end());
                 } else {
                     fDistSE = msg.direction.Length();
-                    bAgreedToShareEnergy = true;
+                    bAgreedToShareEnergy[msg.ID] = true;
                     RLOG << "Found worker requesting energy " << msg.ID << std::endl;
                 }
                 break;
             }
         }
 
-        if( !strEnergyTo.empty() && !bAgreedToShareEnergy ) {
-            /* Follower was not found. reset */
-            strEnergyTo = "";
+        for(const auto& [receiver, agreed] : bAgreedToShareEnergy) {
+            if(!agreed) {
+                strEnergyTo.erase(std::remove(strEnergyTo.begin(), strEnergyTo.end(), receiver), strEnergyTo.end());
+                bAgreedToShareEnergy[receiver] = false;
+            }
         }
 
-        if(strEnergyTo.empty() && Check_AtWork(nullptr)) {
-            Message closestRequest;
+        if(Check_AtWork(nullptr)) {
             for(const auto& msg : workerMsgs) {
                 // RLOG << "msg.ID: " << msg.ID << " level " << msg.emsg.energyLevel << " " << msg.emsg.from.empty() << std::endl;
                 // msg.Print();
                 if(msg.emsg.requestingEnergy && msg.emsg.from.empty()) {
-                    if(closestRequest.Empty() || msg.direction.Length() < closestRequest.direction.Length()) {
-                        closestRequest = msg;
-                        strEnergyTo = msg.ID;
-                        fDistSE = msg.direction.Length();
-                        bAgreedToShareEnergy = true;
-                        RLOG << "Found worker requesting energy " << msg.ID << ", dist=" << fDistSE << std::endl;
-                    }
+                    strEnergyTo.push_back(msg.ID);
+                    fDistSE = msg.direction.Length();
+                    bAgreedToShareEnergy[msg.ID] = true;
+                    RLOG << "Found worker requesting energy " << msg.ID << ", dist=" << fDistSE << std::endl;
                 }
             }
         }
@@ -570,7 +567,7 @@ void CCharger::Travel() {
     /* Search for target to share energy */
     if(Check_AtWork(nullptr)) {
         for(const auto& msg : workerMsgs) {
-            if(strEnergyTo == msg.ID) {
+            if(std::find(strEnergyTo.begin(), strEnergyTo.end(), msg.ID) != strEnergyTo.end()) {
                 /* Don't move when target is nearby */
                 m_pcWheels->SetLinearVelocity(0.0f, 0.0f);
                 bMoving = false;
@@ -681,7 +678,7 @@ void CCharger::MoveToShareEnergy() {
 
     bool bFoundTarget = false;
     for(const auto& msg : combinedMsgs) {
-        if(msg.ID == strEnergyTo) {
+        if(std::find(strEnergyTo.begin(), strEnergyTo.end(), msg.ID) != strEnergyTo.end()) {
             shareEnergyMsg = msg;
             bFoundTarget = true;
             break;

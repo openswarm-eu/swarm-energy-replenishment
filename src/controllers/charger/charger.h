@@ -335,10 +335,10 @@ private:
     /* Sharing energy */
     bool bSharingEnergy;
     bool bRequestingEnergy;
-    bool bAgreedToShareEnergy; // used in the TRAVELER state
+    std::unordered_map<std::string, bool> bAgreedToShareEnergy; // used in the TRAVELER state
     std::string strEnergyFrom; // used in the CONNECTOR state
     bool bOtherLowEnergy; // used in the TRAVELER state
-    std::string strEnergyTo; // used in the TRAVELER state
+    std::vector<std::string> strEnergyTo; // used in the TRAVELER state
     Real fDistSE; // Distance to the robot it will share energy to (used in the TRAVELER state) in cm
     Real fTargetDistSE; // in cm
 

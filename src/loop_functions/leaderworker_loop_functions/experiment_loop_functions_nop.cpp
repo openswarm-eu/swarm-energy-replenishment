@@ -558,26 +558,26 @@ void CExperimentLoopFunctionsNop::PostStep() {
     // }
 
     /* Loop workers to find robots that wishes to transfer energy */
-    std::unordered_map<std::string,CEPuckEntity> mapTravelerProviders;
+    // std::unordered_map<std::string,CEPuckEntity> mapTravelerProviders;
     CSpace::TMapPerType& m_cEPucks = GetSpace().GetEntitiesByType("e-puck");
-    for(CSpace::TMapPerType::iterator itEpuck = m_cEPucks.begin(); itEpuck != m_cEPucks.end(); ++itEpuck) {
+    // for(CSpace::TMapPerType::iterator itEpuck = m_cEPucks.begin(); itEpuck != m_cEPucks.end(); ++itEpuck) {
 
-        /* Get handle to e-puck entity and controller */
-        CEPuckEntity& cEPuck = *any_cast<CEPuckEntity*>(itEpuck->second);
-        try {
-            CWorker& cController = dynamic_cast<CWorker&>(cEPuck.GetControllableEntity().GetController());
-            /* Check if it is trying to share energy */
-            if( !cController.GetEnergyTo().empty() ) {
-                /* Check if it has started to share energy */
-                if(cController.IsSharingEnergy()) {
-                    // LOG << cEPuck.GetId() << " sharing energy target = " << cController.GetEnergyTo() << std::endl;
-                    mapTravelerProviders[cController.GetEnergyTo()] = cEPuck;
-                }
-            }
-        } catch(CARGoSException& ex) {
-            THROW_ARGOSEXCEPTION_NESTED("While casting robot as a worker", ex);
-        }
-    }
+    //     /* Get handle to e-puck entity and controller */
+    //     CEPuckEntity& cEPuck = *any_cast<CEPuckEntity*>(itEpuck->second);
+    //     try {
+    //         CWorker& cController = dynamic_cast<CWorker&>(cEPuck.GetControllableEntity().GetController());
+    //         /* Check if it is trying to share energy */
+    //         if( !cController.GetEnergyTo().empty() ) {
+    //             /* Check if it has started to share energy */
+    //             if(cController.IsSharingEnergy()) {
+    //                 // LOG << cEPuck.GetId() << " sharing energy target = " << cController.GetEnergyTo() << std::endl;
+    //                 mapTravelerProviders[cController.GetEnergyTo()] = cEPuck;
+    //             }
+    //         }
+    //     } catch(CARGoSException& ex) {
+    //         THROW_ARGOSEXCEPTION_NESTED("While casting robot as a worker", ex);
+    //     }
+    // }
     /* Loop chargers to find robots that wishes to transfer energy */
     std::unordered_map<std::string,CEPuckChargerEntity> mapChargerProviders;
     if(m_unTotalChargers > 0) {
@@ -612,11 +612,11 @@ void CExperimentLoopFunctionsNop::PostStep() {
     }
 
     // Loop provider keys
-    for(const auto& [key, value] : mapTravelerProviders) {
-        LOG << "Energy receiver: " << key << std::endl;
-    }
+    // for(const auto& [key, value] : mapTravelerProviders) {
+    //     LOG << "Energy receiver: " << key << std::endl;
+    // }
     for(const auto& [key, value] : mapChargerProviders) {
-        LOG << "Energy receiver: " << key << std::endl;
+        LOG << "Energy provider: " << key << " from " << value.GetId() << std::endl;
     }
 
     /* Loop workers */
