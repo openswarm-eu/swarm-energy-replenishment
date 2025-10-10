@@ -564,17 +564,17 @@ void CCharger::Travel() {
     repulseMsgs.insert(std::end(repulseMsgs), std::begin(workerMsgs), std::end(workerMsgs));
     repulseMsgs.insert(std::end(repulseMsgs), std::begin(chargerMsgs), std::end(chargerMsgs));
 
-    /* Search for target to share energy */
-    if(Check_AtWork(nullptr)) {
-        for(const auto& msg : workerMsgs) {
-            if(std::find(strEnergyTo.begin(), strEnergyTo.end(), msg.ID) != strEnergyTo.end()) {
-                /* Don't move when target is nearby */
-                m_pcWheels->SetLinearVelocity(0.0f, 0.0f);
-                bMoving = false;
-                return;
-            }
-        }
-    }
+    // /* Search for target to share energy */
+    // if(Check_AtWork(nullptr)) {
+    //     for(const auto& msg : workerMsgs) {
+    //         if(std::find(strEnergyTo.begin(), strEnergyTo.end(), msg.ID) != strEnergyTo.end()) {
+    //             /* Don't move when target is nearby */
+    //             m_pcWheels->SetLinearVelocity(0.0f, 0.0f);
+    //             bMoving = false;
+    //             return;
+    //         }
+    //     }
+    // }
 
     /* Calculate overall force applied to the robot */
     CVector2 travelForce   = GetTravelVector();

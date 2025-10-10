@@ -1117,7 +1117,8 @@ void CWorkerMC::Travel() {
     /* Calculate overall force applied to the robot */
     CVector2 travelForce;
     if(bRequestingEnergy && !strEnergyFrom.empty() && currentMoveType == MoveType::MOVE_TO_CHARGE) {
-        travelForce = GetApproachToShareEnergyVector(shareEnergyMsg);
+        // travelForce = GetApproachToShareEnergyVector(shareEnergyMsg);
+        travelForce = CVector2();
     } else {
         travelForce = GetTravelVector();
     }

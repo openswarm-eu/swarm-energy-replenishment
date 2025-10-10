@@ -48,7 +48,7 @@ random_seed='876' />
         <!-- Battery sensor returns energy level in range [0, 1] -->
         <energy low_thres="0.1" 
                 high_thres="0.99" 
-                share_dist="14" />
+                share_dist="226" />
       </params>
     </worker_mc_controller>
 
@@ -82,7 +82,7 @@ random_seed='876' />
         <!-- Battery sensor returns energy level in range [0, 1] -->
         <energy low_thres="0.1" 
                 high_thres="0.99" 
-                share_dist="14" />
+                share_dist="226" />
       </params>
     </charger_controller>
 

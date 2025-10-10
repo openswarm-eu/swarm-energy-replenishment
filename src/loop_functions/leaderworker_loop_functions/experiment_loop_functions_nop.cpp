@@ -28,7 +28,7 @@ namespace fs = std::filesystem;
 
 static const Real        EP_RADIUS        = 0.035f;
 static const Real        EP_AREA          = ARGOS_PI * Square(0.035f);
-static const Real        EP_RAB_RANGE     = 0.5333333333f; // 1.6 * (1/3)
+static const Real        EP_RAB_RANGE     = 2.26274f; //0.5333333333f; // 1.6 * (1/3)
 static const std::string WO_CONTROLLER    = "worker";
 static const std::string WOMC_CONTROLLER  = "worker_mc";
 static const std::string CH_CONTROLLER    = "charger";
@@ -752,11 +752,11 @@ void CExperimentLoopFunctionsNop::PostStep() {
                     CBatteryEquippedEntity& cProviderBattery = cProvider.GetBatterySensorEquippedEntity();
                     CCharger& cProviderController = dynamic_cast<CCharger&>(cProvider.GetControllableEntity().GetController());
                     /* Check the distance between the two robots and whether the provider has started sharing energy */
-                    Real fDistPair = 100 * Distance(cProvider.GetEmbodiedEntity().GetOriginAnchor().Position, cEPuck.GetEmbodiedEntity().GetOriginAnchor().Position);
+                    // Real fDistPair = 100 * Distance(cProvider.GetEmbodiedEntity().GetOriginAnchor().Position, cEPuck.GetEmbodiedEntity().GetOriginAnchor().Position);
                     
                     // LOG << "Check if can transfer... " << cProvider.GetId() << " -> " << cEPuck.GetId() << " (dist = " << fDistPair << " < " << cProviderController.GetDistToShareEnergy() << ")" << std::endl;
 
-                    if(fDistPair < cProviderController.GetDistToShareEnergy()) {
+                    // if(fDistPair < cProviderController.GetDistToShareEnergy()) {
                         LOG << "Transfering energy! " << cProvider.GetId() << " -> " << cEPuck.GetId() << std::endl;
                         Real energyDelta = fTransferRatePerStep * (1 - fTransferEfficiency);
                         // LOG << "Energy delta: " << energyDelta << std::endl;
@@ -790,10 +790,10 @@ void CExperimentLoopFunctionsNop::PostStep() {
 
                         // cController.SetLED(CColor::MAGENTA);
                         // cProviderController.SetLED(CColor::MAGENTA);
-                    } else {
-                        // cController.SetLED(CColor::GREEN);
-                        // cProviderController.SetLED(CColor::BLUE);
-                    }
+                    // } else {
+                    //     // cController.SetLED(CColor::GREEN);
+                    //     // cProviderController.SetLED(CColor::BLUE);
+                    // }
                 }
             }
             
