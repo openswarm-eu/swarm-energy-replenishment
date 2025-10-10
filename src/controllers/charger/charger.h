@@ -186,9 +186,9 @@ public:
     virtual bool IsSharingEnergy() const;
 
     /*
-    * Get the ID of the robot it is sharing energy to
+    * Get the IDs of the robots it is sharing energy to
     */
-    virtual std::string GetEnergyTo() const;
+    virtual std::vector<std::string> GetEnergyTo() const;
 
     /*
     * Get the distance the robot can share energy to

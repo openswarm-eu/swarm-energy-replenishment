@@ -8,6 +8,8 @@
 #include <argos3/plugins/simulator/entities/battery_equipped_entity.h>
 #include <argos3/plugins/simulator/entities/rectangle_task_entity.h>
 
+#include <utility/robot_position.h>
+
 #include <unordered_map>
 #include <unordered_set>
 
@@ -26,6 +28,7 @@ public:
    virtual CColor GetFloorColor(const CVector2& c_position_on_plane);
    virtual void PreStep();
    virtual void PostStep();
+   virtual std::unordered_map<std::string,RobotPosition> GetRobotPos() const;
    // virtual std::vector<CVector2> GetArenaSize() const;
    virtual bool IsDrawRobotLabel() const;
    virtual bool IsLogging();
@@ -39,6 +42,8 @@ private:
 
    TConfigurationNode config;
    std::vector<std::string> m_vecEntityID;
+
+   std::unordered_map<std::string,RobotPosition> robotPos;
 
    std::vector<CVector2> m_vecWaypointPos;
    CFloorEntity* m_pcFloor;

@@ -231,8 +231,8 @@ bool CCharger::IsSharingEnergy() const {
 /****************************************/
 /****************************************/
 
-std::string CCharger::GetEnergyTo() const {
-    return strEnergyTo;
+std::vector<std::string> CCharger::GetEnergyTo() const {
+    return std::vector<std::string>{strEnergyTo};
 }
 
 /****************************************/

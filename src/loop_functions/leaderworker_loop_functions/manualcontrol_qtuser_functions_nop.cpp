@@ -14,6 +14,31 @@ static const Real DIRECTION_VECTOR_FACTOR = 10.;
 /****************************************/
 /****************************************/
 
+CVector2 reduceLength(CVector2 vec, Real reduction) {
+   Real length = std::sqrt(vec.GetX() * vec.GetX() + vec.GetY() * vec.GetY());
+   if (length == 0.0){
+      LOGERR << "Division by zero in reduceLength" << std::endl;
+      return CVector2();  // Avoid division by zero
+   }
+
+   Real newLength = std::max(0.0, length - reduction);  // Ensure non-negative length
+   Real scale = newLength / length;
+
+   return CVector2(vec.GetX()*scale, vec.GetY()*scale);
+}
+
+/****************************************/
+/****************************************/
+
+CVector2 arrowTip(CVector2 point, Real distance, CRadians angle_rad) {
+   Real dx = distance * Cos(angle_rad);
+   Real dy = distance * Sin(angle_rad);
+   return CVector2(point.GetX() + dx, point.GetY() + dy);
+}
+
+/****************************************/
+/****************************************/
+
 CManualControlQTUserFunctionsNop::CManualControlQTUserFunctionsNop() :
    m_pcController(NULL),
    m_strSendCommand("") {
@@ -243,6 +268,56 @@ void CManualControlQTUserFunctionsNop::Draw(CEPuckChargerEntity& c_entity) {
          std::string text = c_entity.GetId().c_str();
          // std::string text = "   ";
 
+         /* Draw energy transfer lines */
+         std::vector<std::string> vecEnergyTo = cController.GetEnergyTo();
+         std::unordered_map<std::string,RobotPosition> robotPos = m_pcExperimentLoopFunctions->GetRobotPos();
+         RobotPosition myPos = robotPos[c_entity.GetId()];
+         CRadians cZAngle, cYAngle, cXAngle;
+         myPos.orientation.ToEulerAngles(cZAngle, cYAngle, cXAngle);
+
+         for(const auto& id : vecEnergyTo) {
+            if(robotPos.find(id) != robotPos.end()) {
+               CVector2 pos = robotPos[id].position;
+               /* Find vector from myPos to the other robot pos */
+               CVector2 vec = pos - myPos.position;
+               /* Convert CVector2 to CVector3 */
+               CVector3 vec3 = CVector3(vec.GetX(), vec.GetY(), 0.001);
+               /* rotate vector according to cZAngle */
+               vec3.RotateZ(-cZAngle);
+               /* Create Ray between origin to vec3 */
+               CRay3 ray = CRay3(CVector3(0, 0, 0.001), vec3);
+
+               /* Reduce length of vec3 by the e-puck body radius */
+               CVector2 vec2 = CVector2(vec3.GetX(), vec3.GetY());
+
+               // /* Draw text in the center point along this vector */
+               // std::stringstream oss;
+               // oss << std::fixed << std::setprecision(1) << (vec.Length() / cController.GetRABRange() * 100) << "%";
+               
+               // CVector2 textPos = vec2 / 2;
+               // if(hop.ID[0] == 'L' || stoi(c_entity.GetId().substr(1)) < stoi(hop.ID.substr(1))) {
+               //    DrawText(CVector3(textPos.GetX(), textPos.GetY(), 0.005), oss.str(), CColor::BLACK);
+               // }
+
+               vec2 = reduceLength(vec2, 0.035);
+
+               /* Calculate angle of vec2 */
+               CRadians angle = vec2.Angle().SignedNormalize();
+
+               CVector2 arrowTip1 = arrowTip(vec2, 0.05, angle + CRadians::PI - CRadians::PI_OVER_SIX);
+               CVector2 arrowTip2 = arrowTip(vec2, 0.05, angle + CRadians::PI + CRadians::PI_OVER_SIX);
+               CRay3 ray_1 = CRay3(CVector3(vec2.GetX(), vec2.GetY(), 0.001), CVector3(arrowTip1.GetX(), arrowTip1.GetY(), 0.001));
+               CRay3 ray_2 = CRay3(CVector3(vec2.GetX(), vec2.GetY(), 0.001), CVector3(arrowTip2.GetX(), arrowTip2.GetY(), 0.001));
+
+               /* Draw arrow */
+               CColor arrow_color = CColor::CYAN;
+
+               DrawRay(ray, arrow_color, 4);
+               DrawRay(ray_1, arrow_color, 4);
+               DrawRay(ray_2, arrow_color, 4);
+            }   
+         }
+         
          /* Append energy dependent action */
          std::ostringstream energyStream;
          if(cController.IsSharingEnergy()) {

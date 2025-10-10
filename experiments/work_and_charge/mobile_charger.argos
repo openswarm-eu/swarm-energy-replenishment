@@ -95,7 +95,7 @@ random_seed='876' />
                   label="experiment_loop_functions_nop">
 
     <!-- Output path -->
-    <output logging="true"
+    <output logging="false"
             out_path='results/work_and_charge/mobile_4C_200E_001/'
             frame_grabbing="false" 
             camera_index="0" />
@@ -125,8 +125,8 @@ random_seed='876' />
     <!-- Distribute workers and chargers -->
     <distribute>
       <!-- <position min="-0.7,-0.8" max="-0.8,0.8" /> -->
-      <e-puck controller="worker_mc" num_robots="6"/>
-      <e-puck_charger controller="charger" num_robots="4"/>
+      <e-puck controller="worker_mc" num_robots="9"/>
+      <e-puck_charger controller="charger" num_robots="1"/>
     </distribute>
 
   </loop_functions>

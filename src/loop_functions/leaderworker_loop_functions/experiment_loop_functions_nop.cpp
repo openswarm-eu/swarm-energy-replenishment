@@ -360,6 +360,10 @@ void CExperimentLoopFunctionsNop::PreStep() {
                 /* Current location */
                 CVector2 cPos = CVector2(cEPuck.GetEmbodiedEntity().GetOriginAnchor().Position.GetX(),
                                          cEPuck.GetEmbodiedEntity().GetOriginAnchor().Position.GetY());
+                RobotPosition cRobotPos;
+                cRobotPos.position = cPos;
+                cRobotPos.orientation = cEPuck.GetEmbodiedEntity().GetOriginAnchor().Orientation;
+                robotPos[cEPuck.GetId()] = cRobotPos;
 
                 if(m_bTaskExists) {
 
@@ -433,9 +437,21 @@ void CExperimentLoopFunctionsNop::PreStep() {
             try {
                 CCharger& cController = dynamic_cast<CCharger&>(cEPuck.GetControllableEntity().GetController());
 
-                /* Store the robot this charger intends to share energy to */
-                if(!cController.GetEnergyTo().empty() )
-                    setChargersSharingEnergyTo.insert(cController.GetEnergyTo());
+                /* Current location */
+                CVector2 cPos = CVector2(cEPuck.GetEmbodiedEntity().GetOriginAnchor().Position.GetX(),
+                                         cEPuck.GetEmbodiedEntity().GetOriginAnchor().Position.GetY());
+                RobotPosition cRobotPos;
+                cRobotPos.position = cPos;
+                cRobotPos.orientation = cEPuck.GetEmbodiedEntity().GetOriginAnchor().Orientation;
+                robotPos[cEPuck.GetId()] = cRobotPos;
+
+                /* Store the robot(s) this charger intends to share energy to */
+                const std::vector<std::string> &vecEnergyTo = cController.GetEnergyTo();
+                if(!vecEnergyTo.empty()) {
+                    for(const auto &s : vecEnergyTo) {
+                        setChargersSharingEnergyTo.insert(s);
+                    }
+                }
 
             } catch(CARGoSException& ex) {
                 THROW_ARGOSEXCEPTION_NESTED("While casting robot as a charger", ex);
@@ -573,11 +589,19 @@ void CExperimentLoopFunctionsNop::PostStep() {
             try {
                 CCharger& cController = dynamic_cast<CCharger&>(cEPuck.GetControllableEntity().GetController());
                 /* Check if it is trying to share energy */
-                if( !cController.GetEnergyTo().empty() ) {
+                const std::vector<std::string> &vecEnergyToCh = cController.GetEnergyTo();
+                if( !vecEnergyToCh.empty() ) {
                     /* Check if it has started to share energy */
                     if(cController.IsSharingEnergy()) {
-                        LOG << cEPuck.GetId() << " sharing energy target = " << cController.GetEnergyTo() << std::endl;
-                        mapChargerProviders[cController.GetEnergyTo()] = cEPuck;
+                        std::string joinedTargets;
+                        for(size_t i = 0; i < vecEnergyToCh.size(); ++i) {
+                            if(i) joinedTargets += ",";
+                            joinedTargets += vecEnergyToCh[i];
+                        }
+                        LOG << cEPuck.GetId() << " sharing energy target(s) = " << joinedTargets << std::endl;
+                        for(const auto &t : vecEnergyToCh) {
+                            mapChargerProviders[t] = cEPuck;
+                        }
                     }
                 }
 
@@ -1127,9 +1151,22 @@ void CExperimentLoopFunctionsNop::PostStep() {
     }
 }
 
+/****************************************/
+/****************************************/
+
+std::unordered_map<std::string, RobotPosition> CExperimentLoopFunctionsNop::GetRobotPos() const {
+    return robotPos;
+}
+
+/****************************************/
+/****************************************/
+
 // std::vector<CVector2> CExperimentLoopFunctionsNop::GetArenaSize() const {
 //     return m_vecArenaSize;
 // }
+
+/****************************************/
+/****************************************/
 
 bool CExperimentLoopFunctionsNop::IsDrawRobotLabel() const {
     return m_bDrawRobotLabel;
