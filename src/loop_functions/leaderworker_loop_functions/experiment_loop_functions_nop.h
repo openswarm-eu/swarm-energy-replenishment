@@ -61,9 +61,8 @@ private:
    bool m_bNoDemandTasks;
 
    /* Energy */
-   CVector2 m_cFixedChargePos, m_cMobileChargePos, m_cTaskPos;
+   CVector2 m_cFixedChargePos, m_cTaskPos;
    Real m_fFixedChargeAreaSideX, m_fFixedChargeAreaSideY;
-   Real m_fMobileChargeAreaSideX, m_fMobileChargeAreaSideY;
    Real m_fTaskAreaSideX, m_fTaskAreaSideY;
 
    Real m_fEnergyConsumed;

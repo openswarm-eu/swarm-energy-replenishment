@@ -244,6 +244,20 @@ bool CWorker::IsSharingEnergy() const {
 /****************************************/
 /****************************************/
 
+void CWorker::SetChargingRegion(const CVector2& c_pos) {
+    cChargingPosition = c_pos;
+}
+
+/****************************************/
+/****************************************/
+
+void CWorker::SetWorkingRegion(const CVector2& c_pos) {
+    cWorkingPosition = c_pos;
+}
+
+/****************************************/
+/****************************************/
+
 std::string CWorker::GetEnergyTo() const {
     return strEnergyTo;
 }
@@ -468,8 +482,7 @@ void CWorker::Update() {
     CVector2 pos2d = CVector2(pos3d.GetX(), pos3d.GetY());
 
     /* Distance to charging area */
-    Real fChargingAreaX = -0.5;
-    m_fDistToCharger = pos2d.GetX() - fChargingAreaX;
+    m_fDistToCharger = pos2d.GetX() - cChargingPosition.GetX();
 
 }
 
@@ -617,14 +630,11 @@ CVector2 CWorker::GetTravelVector() {
     CRadians cZAngle, cYAngle, cXAngle;
     m_pcPosSens->GetReading().Orientation.ToEulerAngles(cZAngle, cYAngle, cXAngle);
 
-    Real fWorkAreaX = 0.55; // TEMP hard-coded value
-    Real fChargingAreaX = -0.55; // TEMP hard-coded value
-
     CVector2 desiredPosition;
     if(currentMoveType == MoveType::MOVE_TO_WORK) {
-        desiredPosition = CVector2(fWorkAreaX, pos2d.GetY());
+        desiredPosition = cWorkingPosition;
     } else if(currentMoveType == MoveType::MOVE_TO_CHARGE) {
-        desiredPosition = CVector2(fChargingAreaX, pos2d.GetY());
+        desiredPosition = cChargingPosition;
     }
 
     /* Calculate a normalized vector that points to the next waypoint */
@@ -1069,8 +1079,7 @@ void CWorkerMC::Update() {
     CVector2 pos2d = CVector2(pos3d.GetX(), pos3d.GetY());
 
     /* Distance to charging area */
-    Real fChargingAreaX = -0.5;
-    m_fDistToCharger = pos2d.GetX() - fChargingAreaX;
+    m_fDistToCharger = pos2d.GetX() - cChargingPosition.GetX();
 
     /* Broadcast to neighbors to request energy */
     if(!bRequestingEnergy) 
@@ -1116,12 +1125,12 @@ void CWorkerMC::Travel() {
 
     /* Calculate overall force applied to the robot */
     CVector2 travelForce;
-    if(bRequestingEnergy && !strEnergyFrom.empty() && currentMoveType == MoveType::MOVE_TO_CHARGE) {
-        // travelForce = GetApproachToShareEnergyVector(shareEnergyMsg);
-        travelForce = CVector2();
-    } else {
+    // if(bRequestingEnergy && !strEnergyFrom.empty() && currentMoveType == MoveType::MOVE_TO_CHARGE) {
+    //     // travelForce = GetApproachToShareEnergyVector(shareEnergyMsg);
+    //     travelForce = CVector2();
+    // } else {
         travelForce = GetTravelVector();
-    }
+    // }
     CVector2 robotForce    = GetRobotRepulsionVector(repulseMsgs);
     CVector2 obstacleForce = GetObstacleRepulsionVector();
 
@@ -1162,13 +1171,11 @@ CVector2 CWorkerMC::GetTravelVector() {
     CRadians cZAngle, cYAngle, cXAngle;
     m_pcPosSens->GetReading().Orientation.ToEulerAngles(cZAngle, cYAngle, cXAngle);
 
-    Real fWorkAreaX = 0.55; // TEMP hard-coded value
-
     CVector2 desiredPosition;
     // if(currentMoveType == MoveType::MOVE_TO_WORK) {
-        desiredPosition = CVector2(fWorkAreaX, pos2d.GetY());
+        desiredPosition = cWorkingPosition;
     // } else if(currentMoveType == MoveType::MOVE_TO_CHARGE) {
-    //     desiredPosition = CVector2(fWorkAreaX, pos2d.GetY());
+    //     desiredPosition = cChargingPosition;
     // }
 
     /* Calculate a normalized vector that points to the next waypoint */
@@ -1296,13 +1303,12 @@ unsigned char CWorkerMC::Check_NotAtWork(void* data) {
 
 unsigned char CWorkerMC::Check_AtCharger(void* data) {
     bool isNearCharger = m_fDistToMC <= fTargetDistSE;
-    // RLOG << "Event: atCharger " << isNearCharger << std::endl;
+    // RLOG << "Event: atCharger " << isNearCharger << ", m_fDistToMC: " << m_fDistToMC << std::endl;
     return isNearCharger;
 }
 
 unsigned char CWorkerMC::Check_NotAtCharger(void* data) {
     bool isNearCharger = m_fDistToMC <= fTargetDistSE;
-    // RLOG << "Event: atCharger " << isNearCharger << std::endl;
     return !isNearCharger;
 }
 

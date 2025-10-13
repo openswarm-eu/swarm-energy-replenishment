@@ -231,6 +231,20 @@ bool CCharger::IsSharingEnergy() const {
 /****************************************/
 /****************************************/
 
+void CCharger::SetChargingRegion(const CVector2& c_pos) {
+    cChargingPosition = c_pos;
+}
+
+/****************************************/
+/****************************************/
+
+void CCharger::SetWorkingRegion(const CVector2& c_pos) {
+    cWorkingPosition = c_pos;
+}
+
+/****************************************/
+/****************************************/
+
 std::vector<std::string> CCharger::GetEnergyTo() const {
     return strEnergyTo;
 }
@@ -445,8 +459,7 @@ void CCharger::Update() {
     CVector2 pos2d = CVector2(pos3d.GetX(), pos3d.GetY());
 
     /* Distance to charging area */
-    Real fChargingAreaX = -0.5;
-    m_fDistToCharger = pos2d.GetX() - fChargingAreaX;
+    m_fDistToCharger = pos2d.GetX() - cChargingPosition.GetX();
 
     /* Check whether there are any workers who are requesting energy */
     if( !bSharingEnergy ) { 
@@ -630,14 +643,11 @@ CVector2 CCharger::GetTravelVector() {
     CRadians cZAngle, cYAngle, cXAngle;
     m_pcPosSens->GetReading().Orientation.ToEulerAngles(cZAngle, cYAngle, cXAngle);
 
-    Real fWorkAreaX = 0.25; // TEMP hard-coded value
-    Real fChargingAreaX = -0.535;
-
     CVector2 desiredPosition;
     if(currentMoveType == MoveType::MOVE_TO_WORK) {
-        desiredPosition = CVector2(fWorkAreaX, pos2d.GetY());
+        desiredPosition = cWorkingPosition;
     } else if(currentMoveType == MoveType::MOVE_TO_CHARGE) {
-        desiredPosition = CVector2(fChargingAreaX, pos2d.GetY());
+        desiredPosition = cChargingPosition;
     }
 
     /* Calculate a normalized vector that points to the next waypoint */
@@ -855,7 +865,7 @@ void CCharger::Callback_Charge(void* data) {
 /* Callback functions (Uncontrollable events) */
 
 unsigned char CCharger::Check_AtWork(void* data) {
-    if(m_pcGround->GetReadings()[0] == CColor(191,191,255).ToGrayScale() / 255.0f) {
+    if(m_pcGround->GetReadings()[0] == CColor(255,191,191).ToGrayScale() / 255.0f) {
         // RLOG << "Event: atWork " << 1 << std::endl;
         return true;
     }
@@ -864,7 +874,7 @@ unsigned char CCharger::Check_AtWork(void* data) {
 }
 
 unsigned char CCharger::Check_NotAtWork(void* data) {
-    if(m_pcGround->GetReadings()[0] == CColor(191,191,255).ToGrayScale() / 255.0f) {
+    if(m_pcGround->GetReadings()[0] == CColor(255,191,191).ToGrayScale() / 255.0f) {
         // RLOG << "Event: notAtWork " << 0 << std::endl;
         return false;
     }

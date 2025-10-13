@@ -185,6 +185,16 @@ public:
     */
     virtual bool IsSharingEnergy() const;
 
+    /* 
+    * Set charging region position
+    */
+    virtual void SetChargingRegion(const CVector2& c_pos);
+
+    /* 
+    * Set working region position
+    */
+    virtual void SetWorkingRegion(const CVector2& c_pos);
+
     /*
     * Get the IDs of the robots it is sharing energy to
     */
@@ -332,6 +342,9 @@ private:
     bool bCharging;
     // static constexpr UInt8 chargeAreaID = 1; // Team ID of the charging area (hard-coded to travel to team 1)
     
+    CVector2 cChargingPosition;
+    CVector2 cWorkingPosition;
+
     /* Sharing energy */
     bool bSharingEnergy;
     bool bRequestingEnergy;

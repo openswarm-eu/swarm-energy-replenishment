@@ -146,18 +146,23 @@ void CExperimentLoopFunctionsNop::Init(TConfigurationNode& t_node) {
         m_fEnergyLost = 0;
         m_bNoDemandTasks = true;
         /* Energy-aware swarm */
-        m_cFixedChargePos = CVector2(-0.65, 0);
-        m_fFixedChargeAreaSideX = 0.3;
-        m_fFixedChargeAreaSideY = 1.6;
-        
-        m_cMobileChargePos = CVector2(0.35, 0);
-        m_fMobileChargeAreaSideX = 0.3;
-        m_fMobileChargeAreaSideY = 1.6;
 
-        m_cTaskPos = CVector2(0.65, 0);
+        // Get arena size from simulation
+        CVector3 cArenaSize = GetSpace().GetArenaSize();
+        LOG << "Arena Size: X = " << cArenaSize.GetX() << " Y = " << cArenaSize.GetY() << std::endl;
+
+        m_cFixedChargePos = CVector2(-cArenaSize.GetX()/2 + 0.5 + 0.15, 0);
+        m_fFixedChargeAreaSideX = 0.3;
+        m_fFixedChargeAreaSideY = 1.0;
+        
+        // m_cMobileChargePos = CVector2(0.35, 0);
+        // m_fMobileChargeAreaSideX = 0.3;
+        // m_fMobileChargeAreaSideY = 1.0;
+
+        m_cTaskPos = CVector2(cArenaSize.GetX()/2 - 0.5 - 0.15, 0);
         m_fTaskAreaSideX = 0.3;
-        m_fTaskAreaSideY = 1.6;
-        CVector2 cCenter = CVector2(0.65, 0);
+        m_fTaskAreaSideY = 1.0;
+        LOG << "Fixed Task Position: " << m_cTaskPos << std::endl;
         
         InitRobots();
         InitTask();
@@ -237,26 +242,26 @@ void CExperimentLoopFunctionsNop::Destroy() {
 CColor CExperimentLoopFunctionsNop::GetFloorColor(const CVector2& c_position_on_plane) {
     
     /* Charging area */
-    if(PointIsInside(m_cFixedChargePos.GetX() - m_fFixedChargeAreaSideX/2 - 0.025f,
-                    m_cFixedChargePos.GetY() - m_fFixedChargeAreaSideY/2 - 0.025f,
+    if(PointIsInside(m_cFixedChargePos.GetX() - m_fFixedChargeAreaSideX/2,
+                    m_cFixedChargePos.GetY() - m_fFixedChargeAreaSideY/2,
                     m_cFixedChargePos.GetX() + m_fFixedChargeAreaSideX/2,
-                    m_cFixedChargePos.GetY() + m_fFixedChargeAreaSideY/2 + 0.025f,
-                    c_position_on_plane.GetX(),         
+                    m_cFixedChargePos.GetY() + m_fFixedChargeAreaSideY/2,
+                    c_position_on_plane.GetX(),
                     c_position_on_plane.GetY())) {
         return CColor(191,255,191);
     }
 
-    /* Energy Sharing area */
-    if(m_unTotalChargers > 0) {
-        if(PointIsInside(m_cMobileChargePos.GetX() - m_fMobileChargeAreaSideX/2,
-                        m_cMobileChargePos.GetY() - m_fMobileChargeAreaSideY/2 - 0.025f,
-                        m_cMobileChargePos.GetX() + m_fMobileChargeAreaSideX/2,
-                        m_cMobileChargePos.GetY() + m_fMobileChargeAreaSideY/2 + 0.025f,
-                        c_position_on_plane.GetX(),         
-                        c_position_on_plane.GetY())) {
-            return CColor(191,191,255);
-        }
-    }
+    // /* Energy Sharing area */
+    // if(m_unTotalChargers > 0) {
+    //     if(PointIsInside(m_cMobileChargePos.GetX() - m_fMobileChargeAreaSideX/2,
+    //                     m_cMobileChargePos.GetY() - m_fMobileChargeAreaSideY/2 - 0.025f,
+    //                     m_cMobileChargePos.GetX() + m_fMobileChargeAreaSideX/2,
+    //                     m_cMobileChargePos.GetY() + m_fMobileChargeAreaSideY/2 + 0.025f,
+    //                     c_position_on_plane.GetX(),         
+    //                     c_position_on_plane.GetY())) {
+    //         return CColor(191,191,255);
+    //     }
+    // }
 
     CSpace::TMapPerType* cCTasks;
     if(m_bNoDemandTasks) {
@@ -272,9 +277,9 @@ CColor CExperimentLoopFunctionsNop::GetFloorColor(const CVector2& c_position_on_
         if(m_bNoDemandTasks) {
             CRectangleTaskNoDemandEntity& cCTask = *any_cast<CRectangleTaskNoDemandEntity*>(it->second);
             if(PointIsInside(cCTask.GetPosition().GetX() - cCTask.GetWidthX()/2,
-                            cCTask.GetPosition().GetY() - cCTask.GetWidthY()/2 - 0.025f,
-                            cCTask.GetPosition().GetX() + cCTask.GetWidthX()/2 + 0.025f,
-                            cCTask.GetPosition().GetY() + cCTask.GetWidthY()/2 + 0.025f,
+                            cCTask.GetPosition().GetY() - cCTask.GetWidthY()/2,
+                            cCTask.GetPosition().GetX() + cCTask.GetWidthX()/2,
+                            cCTask.GetPosition().GetY() + cCTask.GetWidthY()/2,
                             c_position_on_plane.GetX(),         
                             c_position_on_plane.GetY())) {
                 return CColor(255,191,191);
@@ -282,10 +287,10 @@ CColor CExperimentLoopFunctionsNop::GetFloorColor(const CVector2& c_position_on_
         } else {
             CRectangleTaskEntity& cCTask = *any_cast<CRectangleTaskEntity*>(it->second);
             if(PointIsInside(cCTask.GetPosition().GetX() - cCTask.GetWidthX()/2,
-                            cCTask.GetPosition().GetY() - cCTask.GetWidthY()/2 - 0.025f,
-                            cCTask.GetPosition().GetX() + cCTask.GetWidthX()/2 + 0.025f,
-                            cCTask.GetPosition().GetY() + cCTask.GetWidthY()/2 + 0.025f,
-                            c_position_on_plane.GetX(),         
+                            cCTask.GetPosition().GetY() - cCTask.GetWidthY()/2,
+                            cCTask.GetPosition().GetX() + cCTask.GetWidthX()/2,
+                            cCTask.GetPosition().GetY() + cCTask.GetWidthY()/2,
+                            c_position_on_plane.GetX(),
                             c_position_on_plane.GetY())) {
                 if(cCTask.GetDemand() > 0) {
                     return CColor(255,191,191);
@@ -1921,6 +1926,17 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
         }
 
         if(str_controller_type == "worker" || str_controller_type == "worker_mc") {
+
+            /* Y-axis shift for the work positions */
+            std::vector<Real> y_shift;
+            Real step = 0.1;
+
+            for (int i = 0; i < un_robots; ++i) {
+                Real val = 0.05 + i * step;
+                y_shift.push_back(val);
+                y_shift.push_back(-val);
+            }
+            
             CEPuckEntity* pcEP;
             /* For each robot worker */
             for(size_t i = 0; i < un_robots; ++i) {
@@ -1955,7 +1971,9 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 m_mapEnergyConsumedToWork[cEPId.str()] = 0.0f;
 
                 CWorker* cfController = dynamic_cast<CWorker*>(&pcEP->GetControllableEntity().GetController());
-                cfController->SetMoveDischargeRate(m_fDeltaPosWorker, m_fFullChargeWorker);
+                cfController->SetMoveDischargeRate(m_fDeltaPosWorker, m_fFullChargeWorker);                
+                cfController->SetChargingRegion(m_cFixedChargePos + CVector2(0, y_shift[i]));
+                cfController->SetWorkingRegion(m_cTaskPos + CVector2(0, y_shift[i]));
 
                 /* Try to place it in the arena */
                 unTrials = 0;
@@ -2012,6 +2030,8 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
 
                 CCharger* cfController = dynamic_cast<CCharger*>(&pcEP->GetControllableEntity().GetController());
                 cfController->SetMoveDischargeRate(m_fDeltaPosCharger, m_fFullChargeWorker, m_fFullChargeCharger);
+                cfController->SetChargingRegion(m_cFixedChargePos + CVector2(0.1,0));
+                cfController->SetWorkingRegion(m_cTaskPos - CVector2(0.1,0));
 
                 /* Try to place it in the arena */
                 unTrials = 0;

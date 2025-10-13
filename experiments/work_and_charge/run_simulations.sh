@@ -31,7 +31,7 @@ elif [ "$STRATEGY_TYPE" = "mobile" ]; then
 
     # charger capacity
     # CHARGER_CAPACITY=(100 150 200 400 600)
-    CHARGER_CAPACITY=(100)
+    CHARGER_CAPACITY=(2000)
 
     # work rate
     # DELTA_WORK=(0.1 0.25 0.5 1.0 1.5 2.0 3.0 4.0 10.0)
@@ -55,7 +55,20 @@ EXPERIMENT_DIR="$BASE_DIR/experiments/$EXPERIMENT_NAME"
 RESULT_DIR="$BASE_DIR/results/$EXPERIMENT_NAME"
 TEMPLATE_EXPERIMENT_FILE=$EXPERIMENT_DIR/${STRATEGY_NAME}.argos
 
-MAX_SPEED=12.0
+DELTA_COMMUTE=25.0 # seconds
+MAX_SPEED=12.0 # cm/s
+# calculate commute distance in meters
+COMMUTE_DISTANCE=$(echo "scale=3; ($DELTA_COMMUTE * $MAX_SPEED) / 100" | bc -l)
+# format with leading zero
+COMMUTE_DISTANCE=$(printf "%.3f" "$COMMUTE_DISTANCE")
+echo "Commute distance: $(printf "%.3f" $COMMUTE_DISTANCE) m"
+
+# Arena size variables
+ARENA_X=2.5
+ARENA_Y=$(echo "$COMMUTE_DISTANCE + 1.6" | bc -l)
+WALL_THICK=0.05
+WALL_HEIGHT=0.2
+REGION_X=0.3
 
 # DEFAULT_DELTA_IDLE=0.0
 DEFAULT_DELTA_IDLE=0.005
@@ -158,6 +171,36 @@ do
                             sed -i "s|<e-puck_charger controller='charger' num_robots='[0-9]*'/>|<e-puck_charger controller='charger' num_robots='$l'/>|" "$EXPERIMENT_FILE"
                         fi
 
+                        # Set arena size based on commute distance + 1m
+                        NEW_SIZE_Y=$(echo "$COMMUTE_DISTANCE + 1 + ($REGION_X * 2)" | bc -l)
+                        echo New arena size Y: $(printf "%.3f" $NEW_SIZE_Y) m
+                        sed -i "s|<arena size=\"[0-9.]\+,[0-9.]\+,[0-9.]\+\"|<arena size=\"$NEW_SIZE_Y,2,1\"|" "$EXPERIMENT_FILE"
+
+                        # wall length y = region * 2 + 1
+                        WALL_LENGTH_X=$(echo "($REGION_X * 2) + $COMMUTE_DISTANCE" | bc -l)
+
+                        # ---- NORTH WALL ----
+                        sed -i "/<box id=\"wall_north\"/s|size=\"[^\"]*\"|size=\"$WALL_LENGTH_X,$WALL_THICK,$WALL_HEIGHT\"|" "$EXPERIMENT_FILE"
+
+                        # ---- SOUTH WALL ----
+                        sed -i "/<box id=\"wall_south\"/s|size=\"[^\"]*\"|size=\"$WALL_LENGTH_X,$WALL_THICK,$WALL_HEIGHT\"|" "$EXPERIMENT_FILE"
+
+                        # Compute wall position
+                        WALL_LENGTH_Y=1.1
+                        WALL_WEST_X=$(echo "-$NEW_SIZE_Y/2 + 0.5" | bc -l)
+                        WALL_EAST_X=$(echo "$NEW_SIZE_Y/2 - 0.5" | bc -l)
+                        echo Wall west X: $(printf "%.3f" $WALL_WEST_X) m
+                        echo Wall east X: $(printf "%.3f" $WALL_EAST_X) m
+
+                        # ---- WEST WALL ----
+                        sed -i "/<box id=\"wall_west\"/s|size=\"[^\"]*\"|size=\"$WALL_THICK,$WALL_LENGTH_Y,$WALL_HEIGHT\"|" "$EXPERIMENT_FILE"
+                        sed -i "/<box id=\"wall_west\"/,/<\/box>/s|position=\"[^\"]*\"|position=\"$WALL_WEST_X,0,0\"|" "$EXPERIMENT_FILE"
+
+                        # ---- EAST WALL ----
+                        sed -i "/<box id=\"wall_east\"/s|size=\"[^\"]*\"|size=\"$WALL_THICK,$WALL_LENGTH_Y,$WALL_HEIGHT\"|" "$EXPERIMENT_FILE"
+                        sed -i "/<box id=\"wall_east\"/,/<\/box>/s|position=\"[^\"]*\"|position=\"$WALL_EAST_X,0,0\"|" "$EXPERIMENT_FILE"
+
+
                         # Run experiment
                         echo "Running experiment $count, t_loss = $o, charge_rate = $m, work_rate = $j, num_chargers = $l, capacity = $i, run = $k, (s = $SEED) ..."
                         # LOG_FILE="$RESULT_DIR/log.txt"
@@ -166,7 +209,7 @@ do
                         # Set log files to be discarded when running argos3
                         LOG_FILE="/dev/null"
                         LOG_ERR_FILE="/dev/null"
-                        argos3 -c $EXPERIMENT_FILE -l $LOG_FILE -e $LOG_ERR_FILE -z
+                        argos3 -c $EXPERIMENT_FILE -l $LOG_FILE -e $LOG_ERR_FILE
                         # argos3 -c $EXPERIMENT_FILE --no-visualization
                         # argos3 -c $EXPERIMENT_FILE
 
