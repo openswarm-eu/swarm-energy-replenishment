@@ -466,26 +466,6 @@ void CCharger::Update() {
         // Don't search for workers requesting energy when its own energy is low
         strEnergyTo.clear();
     } else {
-        // 1) Check the distance to the current target (follower) it wants to share energy to
-            // 1-1) Stop sharing energy if the target has high energy
-        // 2) Check the current target (connector still requires energy)
-            // 2-1) Stop sharing energy if the target has high energy or already receiving energy from another robot
-        // 3) Search for low energy connectors
-        // 4) Search for signal from leader
-
-        for(const auto& msg : workerMsgs) {
-            if(std::find(strEnergyTo.begin(), strEnergyTo.end(), msg.ID) != strEnergyTo.end()) {
-                if( !msg.emsg.requestingEnergy || msg.emsg.from != this->GetId() ) {
-                    strEnergyTo.erase(std::remove(strEnergyTo.begin(), strEnergyTo.end(), msg.ID), strEnergyTo.end());
-                } else {
-                    fDistSE = msg.direction.Length();
-                    bAgreedToShareEnergy[msg.ID] = true;
-                    RLOG << "Found worker requesting energy " << msg.ID << std::endl;
-                }
-                break;
-            }
-        }
-
         for(const auto& [receiver, agreed] : bAgreedToShareEnergy) {
             if(!agreed) {
                 strEnergyTo.erase(std::remove(strEnergyTo.begin(), strEnergyTo.end(), receiver), strEnergyTo.end());
@@ -497,7 +477,7 @@ void CCharger::Update() {
             for(const auto& msg : workerMsgs) {
                 // RLOG << "msg.ID: " << msg.ID << " level " << msg.emsg.energyLevel << " " << msg.emsg.from.empty() << std::endl;
                 // msg.Print();
-                if(msg.emsg.requestingEnergy && msg.emsg.from.empty()) {
+                if(msg.emsg.requestingEnergy && msg.emsg.from.empty() && std::find(strEnergyTo.begin(), strEnergyTo.end(), msg.ID) == strEnergyTo.end()) {
                     strEnergyTo.push_back(msg.ID);
                     fDistSE = msg.direction.Length();
                     bAgreedToShareEnergy[msg.ID] = true;
