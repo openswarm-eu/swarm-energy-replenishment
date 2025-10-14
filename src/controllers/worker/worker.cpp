@@ -1314,7 +1314,8 @@ unsigned char CWorkerMC::Check_NotAtCharger(void* data) {
 
 unsigned char CWorkerMC::Check_LowEnergy(void* data) {
     /* Return true when the current energy is below the lower threshold */    
-    bool lowEnergy = fEnergy < ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 10) / 100;
+    // bool lowEnergy = fEnergy < ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 10) / 100;
+    bool lowEnergy = fEnergy < fEnergyLowThres;
     // RLOG << "Event: lowEnergy " << lowEnergy << std::endl;
     // if(GetId() == "F1") {
     //     RLOG << "m_fDeltaPos: " << m_fDeltaPos << std::endl;
