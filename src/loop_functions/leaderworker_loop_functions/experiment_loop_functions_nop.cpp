@@ -140,6 +140,7 @@ void CExperimentLoopFunctionsNop::Init(TConfigurationNode& t_node) {
         GetNodeAttributeOrDefault(tExtraBatteryInfo, "delta_work", m_fDeltaWork, 0.055);
         GetNodeAttributeOrDefault(tExtraBatteryInfo, "delta_recharge", m_fDeltaRecharge, 100.0);
         GetNodeAttributeOrDefault(tExtraBatteryInfo, "delta_transfer_loss", m_fDeltaTransferLoss, 0.0);
+        GetNodeAttributeOrDefault(tExtraBatteryInfo, "work_per_step", m_fWorkPerStep, 0.1);
 
         /* ############################# */
         m_fEnergyShared = 0;
@@ -506,7 +507,7 @@ void CExperimentLoopFunctionsNop::PostStep() {
 
             if(m_bNoDemandTasks) {
                 CRectangleTaskNoDemandEntity& cCTask = *any_cast<CRectangleTaskNoDemandEntity*>(itTask->second);
-                UInt32 currentWorkPerformed = cCTask.GetWorkPerformed();
+                Real currentWorkPerformed = cCTask.GetWorkPerformed();
 
                 cCTask.SetCurrentRobotNum(m_mapRobotPerTask[cCTask.GetId()]);
 
@@ -514,12 +515,12 @@ void CExperimentLoopFunctionsNop::PostStep() {
                 if(m_mapRobotPerTask[cCTask.GetId()] >= cCTask.GetMinRobotNum()) {
 
                     /* Update task demand */
-                    cCTask.SetWorkPerformed(currentWorkPerformed + m_mapRobotPerTask[cCTask.GetId()]);
-                    m_unPointsObtained += m_mapRobotPerTask[cCTask.GetId()];
+                    cCTask.SetWorkPerformed(currentWorkPerformed + m_mapRobotPerTask[cCTask.GetId()] * m_fWorkPerStep);
+                    m_unPointsObtained += m_mapRobotPerTask[cCTask.GetId()] * m_fWorkPerStep;
                 }
             } else {
                 CRectangleTaskEntity& cCTask = *any_cast<CRectangleTaskEntity*>(itTask->second);
-                UInt32 currentDemand = cCTask.GetDemand();
+                Real currentDemand = cCTask.GetDemand();
 
                 cCTask.SetCurrentRobotNum(m_mapRobotPerTask[cCTask.GetId()]);
 
@@ -593,23 +594,25 @@ void CExperimentLoopFunctionsNop::PostStep() {
             CEPuckChargerEntity& cEPuck = *any_cast<CEPuckChargerEntity*>(itEpuck->second);
             try {
                 CCharger& cController = dynamic_cast<CCharger&>(cEPuck.GetControllableEntity().GetController());
-                /* Check if it is trying to share energy */
-                const std::vector<std::string> &vecEnergyToCh = cController.GetEnergyTo();
-                if( !vecEnergyToCh.empty() ) {
-                    /* Check if it has started to share energy */
-                    if(cController.IsSharingEnergy()) {
-                        std::string joinedTargets;
-                        for(size_t i = 0; i < vecEnergyToCh.size(); ++i) {
-                            if(i) joinedTargets += ",";
-                            joinedTargets += vecEnergyToCh[i];
-                        }
-                        LOG << cEPuck.GetId() << " sharing energy target(s) = " << joinedTargets << std::endl;
-                        for(const auto &t : vecEnergyToCh) {
-                            mapChargerProviders[t] = cEPuck;
+                
+                if(cController.IsSharingEnergy()) {
+                    /* Check if it is trying to share energy */
+                    const std::vector<std::string> &vecEnergyToCh = cController.GetEnergyTo();
+                    if( !vecEnergyToCh.empty() ) {
+                        /* Check if it has started to share energy */
+                        if(cController.IsSharingEnergy()) {
+                            std::string joinedTargets;
+                            for(size_t i = 0; i < vecEnergyToCh.size(); ++i) {
+                                if(i) joinedTargets += ",";
+                                joinedTargets += vecEnergyToCh[i];
+                            }
+                            LOG << cEPuck.GetId() << " sharing energy target(s) = " << joinedTargets << std::endl;
+                            for(const auto &t : vecEnergyToCh) {
+                                mapChargerProviders[t] = cEPuck;
+                            }
                         }
                     }
                 }
-
             } catch(CARGoSException& ex) {
                 THROW_ARGOSEXCEPTION_NESTED("While casting robot as a charger", ex);
             }

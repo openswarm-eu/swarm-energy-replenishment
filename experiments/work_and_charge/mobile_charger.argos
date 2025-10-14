@@ -21,8 +21,8 @@
     <worker_mc_controller id="worker_mc"
                                         library="build/controllers/worker/libworker.so">
       <actuators>
-        <differential_steering implementation="default" 
-                               factor_stddev="0.1"/>
+        <differential_steering implementation="default" />
+                               <!-- factor_stddev="0.1" -->
         <range_and_bearing implementation="default" />
         <leds implementation="default" medium="leds" />
       </actuators>
@@ -42,21 +42,22 @@
                   gain="1000"
                   exponent="12" />
         <traveler attract="1"
-                  repulse="1"
-                  obstacle="1" />
+                  repulse="0.5"
+                  obstacle="0.5" />
         <SCT path="src/SCT_models/work_and_charge(worker_mc)/supervisor.yaml" />
         <!-- Battery sensor returns energy level in range [0, 1] -->
         <energy low_thres="0.1" 
-                high_thres="0.99" 
-                share_dist="226" />
+                high_thres="0.999" 
+                share_dist="58.3"
+                work_per_step="0.1" />
       </params>
     </worker_mc_controller>
 
     <charger_controller id="charger"
                                         library="build/controllers/charger/libcharger.so">
       <actuators>
-        <differential_steering implementation="default" 
-                               factor_stddev="0.1"/>
+        <differential_steering implementation="default" />
+                               <!-- factor_stddev="0.1" -->
         <range_and_bearing implementation="default" />
         <leds implementation="default" medium="leds" />
       </actuators>
@@ -120,7 +121,8 @@
     <!-- 2. Extra battery model details about how the battery is charged/discharged -->
     <extra_battery_info delta_work="0.1"
                         delta_recharge="1"
-                        delta_transfer_loss="0"/>
+                        delta_transfer_loss="0"
+                        work_per_step="0.1" />
 
     <!-- Distribute workers and chargers -->
     <distribute>

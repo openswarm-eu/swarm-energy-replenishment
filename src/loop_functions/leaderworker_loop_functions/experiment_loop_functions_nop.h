@@ -57,7 +57,7 @@ private:
    UInt32 m_unNextTaskId;
    UInt32 m_unTotalTasks;
    UInt32 m_unTaskDemand;
-   UInt32 m_unPointsObtained;
+   Real m_unPointsObtained;
    bool m_bNoDemandTasks;
 
    /* Energy */
@@ -96,6 +96,7 @@ private:
    Real m_fDeltaWork;
    Real m_fDeltaRecharge;
    Real m_fDeltaTransferLoss;
+   Real m_fWorkPerStep;
 
    /* Temp stored variables to init chargers */
    std::map<UInt32,CVector2> m_vecTeamCenters;   // key = team_id, value = team_center

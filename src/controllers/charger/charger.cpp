@@ -295,6 +295,8 @@ void CCharger::ControlStep() {
         m_pcLEDs->SetAllColors(CColor::BLACK);
         m_pcWheels->SetLinearVelocity(0.0f, 0.0f);
         bMoving = false;
+        bSharingEnergy = false;
+        strEnergyTo.clear();
         // bPerformingTask = false;
         return;
     }
@@ -466,13 +468,6 @@ void CCharger::Update() {
         // Don't search for workers requesting energy when its own energy is low
         strEnergyTo.clear();
     } else {
-        for(const auto& [receiver, agreed] : bAgreedToShareEnergy) {
-            if(!agreed) {
-                strEnergyTo.erase(std::remove(strEnergyTo.begin(), strEnergyTo.end(), receiver), strEnergyTo.end());
-                bAgreedToShareEnergy[receiver] = false;
-            }
-        }
-
         if(Check_AtWork(nullptr)) {
             for(const auto& msg : workerMsgs) {
                 // RLOG << "msg.ID: " << msg.ID << " level " << msg.emsg.energyLevel << " " << msg.emsg.from.empty() << std::endl;
@@ -482,6 +477,9 @@ void CCharger::Update() {
                     fDistSE = msg.direction.Length();
                     bAgreedToShareEnergy[msg.ID] = true;
                     RLOG << "Found worker requesting energy " << msg.ID << ", dist=" << fDistSE << std::endl;
+                } else if(!msg.emsg.requestingEnergy && std::find(strEnergyTo.begin(), strEnergyTo.end(), msg.ID) != strEnergyTo.end()) {
+                    strEnergyTo.erase(std::remove(strEnergyTo.begin(), strEnergyTo.end(), msg.ID), strEnergyTo.end());
+                    bAgreedToShareEnergy[msg.ID] = false;
                 }
             }
         }
