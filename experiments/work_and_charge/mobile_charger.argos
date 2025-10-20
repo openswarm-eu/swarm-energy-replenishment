@@ -37,7 +37,7 @@
         <wheel_turning hard_turn_angle_threshold="90"
                        soft_turn_angle_threshold="70"
                        no_turn_angle_threshold="10"
-                       max_speed="12" />
+                       max_speed="12.0" />
         <team_flocking target_distance="10"
                   gain="1000"
                   exponent="12" />
@@ -47,7 +47,7 @@
         <SCT path="src/SCT_models/work_and_charge(worker_mc)/supervisor.yaml" />
         <!-- Battery sensor returns energy level in range [0, 1] -->
         <energy low_thres="0.1" 
-                high_thres="0.999" 
+                high_thres="0.35" 
                 share_dist="58.3"
                 work_per_step="0.1" />
       </params>
@@ -72,16 +72,16 @@
         <wheel_turning hard_turn_angle_threshold="90"
                        soft_turn_angle_threshold="70"
                        no_turn_angle_threshold="10"
-                       max_speed="12" />
+                       max_speed="12.0" />
         <team_flocking target_distance="10"
                        gain="1000"
                        exponent="12" />
         <traveler attract="1"
-                  repulse="1"
-                  obstacle="1" />
+                  repulse="0.5"
+                  obstacle="0.5" />
         <SCT path="src/SCT_models/work_and_charge(charger)/supervisor.yaml" />
         <!-- Battery sensor returns energy level in range [0, 1] -->
-        <energy low_thres="0.1" 
+        <energy low_thres="0.05" 
                 high_thres="0.999" 
                 share_dist="58.3" />
       </params>
@@ -97,7 +97,7 @@
 
     <!-- Output path -->
     <output logging="true"
-            out_path='results/work_and_charge/mobile_4C_200E_001/'
+            out_path='results/work_and_charge/mobile_W_C_E_R_L_001/'
             frame_grabbing="false" 
             camera_index="0" />
 
@@ -113,15 +113,15 @@
     <battery_model  discharge_model="fixed_time_motion" 
                     full_charge_worker="100" 
                     start_charge_worker="100,100"
-                    full_charge_charger="2000" 
-                    start_charge_charger="2000,2000"
-                    delta_time="0.0"
+                    full_charge_charger="500" 
+                    start_charge_charger="500,500"
+                    delta_time="0.0005"
                     delta_pos_worker="0.1"
                     delta_pos_charger="0.1"/>
     <!-- 2. Extra battery model details about how the battery is charged/discharged -->
-    <extra_battery_info delta_work="0.1"
-                        delta_recharge="1"
-                        delta_transfer_loss="0"
+    <extra_battery_info delta_work="0.300"
+                        delta_recharge="1.000"
+                        delta_transfer_loss="0.500"
                         work_per_step="0.1" />
 
     <!-- Distribute workers and chargers -->
@@ -136,22 +136,22 @@
   <!-- *********************** -->
   <!-- * Arena configuration * -->
   <!-- *********************** -->
-  <arena size="2.5,2,1" center="0,0,0.5">
+  <arena size="5.200,2,1" center="0,0,0.5">
 
     <floor id="floor"
            source="loop_functions"
            pixels_per_meter="100" />
 
     <box id="wall_west" size="0.05,1.1,0.2" movable="false">
-      <body position="-0.825,0,0" orientation="0,0,0" />
+      <body position="-2.10000000000000000000,0,0" orientation="0,0,0" />
     </box>
     <box id="wall_east" size="0.05,1.1,0.2" movable="false">
-      <body position="0.825,0,0" orientation="0,0,0" />
+      <body position="2.10000000000000000000,0,0" orientation="0,0,0" />
     </box>
-    <box id="wall_north" size="1.6,0.05,0.2" movable="false">
+    <box id="wall_north" size="4.200,0.05,0.2" movable="false">
       <body position="0,0.525,0" orientation="0,0,0" />
     </box>
-    <box id="wall_south" size="1.6,0.05,0.2" movable="false">
+    <box id="wall_south" size="4.200,0.05,0.2" movable="false">
       <body position="0,-0.525,0" orientation="0,0,0" />
     </box>
 

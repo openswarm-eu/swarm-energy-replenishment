@@ -278,7 +278,8 @@ protected:
     virtual unsigned char Check_AtCharger(void* data);
     virtual unsigned char Check_NotAtCharger(void* data);
     virtual unsigned char Check_LowEnergy(void* data);
-    virtual unsigned char Check_HighEnergy(void* data);
+    virtual unsigned char Check_finishedCharging(void* data);
+    virtual unsigned char Check_timeToWork(void* data);
 
 private:
 
@@ -352,6 +353,7 @@ private:
     std::string strEnergyFrom; // used in the CONNECTOR state
     bool bOtherLowEnergy; // used in the TRAVELER state
     std::vector<std::string> strEnergyTo; // used in the TRAVELER state
+    bool bPrevSharingEnergy;
     Real fDistSE; // Distance to the robot it will share energy to (used in the TRAVELER state) in cm
     Real fTargetDistSE; // in cm
 

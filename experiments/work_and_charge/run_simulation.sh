@@ -31,12 +31,12 @@ if [ "$ENERGY_TYPE" = "supercap" ]; then
     # Supercapacitor
     CAPACITY_MAX=100
     XI_TRANSFER_LOSS=0.5 # 1 - 0.5
-    NU_CHARGE=1
+    NU_CHARGE=10
 elif [ "$ENERGY_TYPE" = "battery" ]; then
     # Battery
     CAPACITY_MAX=2000
     XI_TRANSFER_LOSS=0.05 # 1 - 0.95
-    NU_CHARGE=$(echo "scale=6; 50/9*0.1" | bc)
+    NU_CHARGE=$(echo "scale=6; 5/9" | bc)
 else
     echo "Invalid energy type: '$1'"
     exit 1
@@ -46,10 +46,10 @@ fi
 NU_MIN=0.0005 # 0.005 / 10 timestep per second
 WORK_PER_STEP=0.1
 
-TAU_CHARGER_CAPACITY=5 # times larger than worker capacity
-ZETA_NUM_WORKERS=9 # number of workers per mobile charger
-ETA_WORK_ENERGY_RATE=3 # times more energy needed for work than moving
-DELTA_COMMUTE=30 # duration of one way commute in seconds
+TAU_CHARGER_CAPACITY=6 # times larger than worker capacity
+ZETA_NUM_WORKERS=8 # number of workers per mobile charger
+ETA_WORK_ENERGY_RATE=0.5 # times more energy needed for work than moving
+DELTA_COMMUTE=15 # duration of one way commute in seconds
 
 CAPACITY_CHARGER_MAX=$((TAU_CHARGER_CAPACITY * CAPACITY_MAX))
 

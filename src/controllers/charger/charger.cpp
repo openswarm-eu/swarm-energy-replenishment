@@ -131,7 +131,7 @@ void CCharger::Init(TConfigurationNode& t_node) {
     currentMoveType = MoveType::MOVE_TO_CHARGE;
     bMoving = false;
     bCharging = false;
-    bSharingEnergy = false;
+    bSharingEnergy = bPrevSharingEnergy = false;
     bRequestingEnergy = false;
     strEnergyFrom = "";
     strEnergyTo.clear();
@@ -150,14 +150,14 @@ void CCharger::Init(TConfigurationNode& t_node) {
     sct->add_callback(this, std::string("EV_shareEnergy"),  &CCharger::Callback_ShareEnergy,  NULL, NULL);
     sct->add_callback(this, std::string("EV_charge"),       &CCharger::Callback_Charge,       NULL, NULL);
 
-
     /* Register uncontrollable events */
-    sct->add_callback(this, std::string("EV_atWork"),       NULL, &CCharger::Check_AtWork,       NULL);
-    sct->add_callback(this, std::string("EV_notAtWork"),    NULL, &CCharger::Check_NotAtWork,    NULL);
-    sct->add_callback(this, std::string("EV_atCharger"),    NULL, &CCharger::Check_AtCharger,    NULL);
-    sct->add_callback(this, std::string("EV_notAtCharger"), NULL, &CCharger::Check_NotAtCharger, NULL);
-    sct->add_callback(this, std::string("EV_lowEnergy"),    NULL, &CCharger::Check_LowEnergy,    NULL);
-    sct->add_callback(this, std::string("EV_highEnergy"),   NULL, &CCharger::Check_HighEnergy,   NULL);
+    sct->add_callback(this, std::string("EV_atWork"),           NULL, &CCharger::Check_AtWork,              NULL);
+    sct->add_callback(this, std::string("EV_notAtWork"),        NULL, &CCharger::Check_NotAtWork,           NULL);
+    sct->add_callback(this, std::string("EV_atCharger"),        NULL, &CCharger::Check_AtCharger,           NULL);
+    sct->add_callback(this, std::string("EV_notAtCharger"),     NULL, &CCharger::Check_NotAtCharger,        NULL);
+    sct->add_callback(this, std::string("EV_lowEnergy"),        NULL, &CCharger::Check_LowEnergy,           NULL);
+    sct->add_callback(this, std::string("EV_finishedCharging"), NULL, &CCharger::Check_finishedCharging,    NULL);
+    sct->add_callback(this, std::string("EV_timeToWork"),       NULL, &CCharger::Check_timeToWork,          NULL);
 
     Reset();
 }
@@ -334,6 +334,10 @@ void CCharger::ControlStep() {
     /* Implement action to perform */
     /*-----------------------------*/
 
+    /* Update variable */
+    bPrevSharingEnergy = !strEnergyTo.empty();
+
+    /* Create message to broadcast */
     Message msg = Message();
 
     msg.state = currentState;
@@ -390,9 +394,9 @@ void CCharger::ControlStep() {
     /* Energy Message */
     EnergyMsg emsg = EnergyMsg();
     emsg.requestingEnergy = Check_LowEnergy(nullptr);
-    if(Check_LowEnergy(nullptr))
+    if(emsg.requestingEnergy)
         emsg.energyLevel = 'L';
-    else if(Check_HighEnergy(nullptr))
+    else if(fEnergy >= fEnergyHighThres)
         emsg.energyLevel = 'H';
     // emsg.owner = this->GetId();
     // emsg.state = currentState;
@@ -892,13 +896,21 @@ unsigned char CCharger::Check_LowEnergy(void* data) {
     //     RLOG << "return at: " << ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 10) << std::endl;
     //     RLOG << "est: " << ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 10) * (m_fWorkerMaxCapacity / m_fChargerMaxCapacity) / 100 << std::endl;
     // }
+    RLOG << "Event: lowEnergy " << lowEnergy << std::endl;
     return lowEnergy;
 }
 
-unsigned char CCharger::Check_HighEnergy(void* data) {
-    /* Return true when the current energy is above the higher threshold */
+unsigned char CCharger::Check_finishedCharging(void* data) {
+    /* Return true when it has stopped sharing energy */
+    bool noWorkerRequesting = bPrevSharingEnergy && strEnergyTo.empty();
+    RLOG << "Event: finishedCharging " << noWorkerRequesting << std::endl;
+    return noWorkerRequesting;
+}
+
+unsigned char CCharger::Check_timeToWork(void* data) {
+    // TEMP
     bool highEnergy = fEnergy >= fEnergyHighThres;
-    // RLOG << "Event: highEnergy " << highEnergy << std::endl;
+    RLOG << "Event: timeToWork " << highEnergy << std::endl;
     return highEnergy;
 }
 
