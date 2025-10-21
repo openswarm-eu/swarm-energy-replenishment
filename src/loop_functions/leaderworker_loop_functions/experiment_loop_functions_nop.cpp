@@ -1976,24 +1976,34 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 CWorker* cfController = dynamic_cast<CWorker*>(&pcEP->GetControllableEntity().GetController());
                 cfController->SetMoveDischargeRate(m_fDeltaPosWorker, m_fFullChargeWorker);                
                 cfController->SetChargingRegion(m_cFixedChargePos + CVector2(0, y_shift[i]));
-                cfController->SetWorkingRegion(m_cTaskPos + CVector2(0, y_shift[i]));
+                CVector2 robotTaskPos = m_cTaskPos + CVector2(0, y_shift[i]);
+                cfController->SetWorkingRegion(robotTaskPos);
 
-                /* Try to place it in the arena */
-                unTrials = 0;
-                bool bDone;
-                do {
-                    /* Choose a random position */
-                    ++unTrials;
-                    cEPPos.Set(m_pcRNG->Uniform(cXRange),
-                            m_pcRNG->Uniform(cYRange),
-                            0.0f);      
+                if(m_strWorkerType == "worker_mc") {
+                    cEPPos.Set(robotTaskPos.GetX(), 
+                                robotTaskPos.GetY(), 
+                                0.0f);
                     cEPRot.FromAngleAxis(m_pcRNG->Uniform(CRadians::UNSIGNED_RANGE),
                                         CVector3::Z);
-                    bDone = MoveEntity(pcEP->GetEmbodiedEntity(), cEPPos, cEPRot);
+                    MoveEntity(pcEP->GetEmbodiedEntity(), cEPPos, cEPRot);
+                } else {
+                    /* Try to place it in the arena */
+                    unTrials = 0;
+                    bool bDone;
+                    do {
+                        /* Choose a random position */
+                        ++unTrials;
+                        cEPPos.Set(m_pcRNG->Uniform(cXRange),
+                                m_pcRNG->Uniform(cYRange),
+                                0.0f);      
+                        cEPRot.FromAngleAxis(m_pcRNG->Uniform(CRadians::UNSIGNED_RANGE),
+                                            CVector3::Z);
+                        bDone = MoveEntity(pcEP->GetEmbodiedEntity(), cEPPos, cEPRot);
 
-                } while(!bDone && unTrials <= MAX_PLACE_TRIALS);
-                if(!bDone) {
-                    THROW_ARGOSEXCEPTION("Can't place " << cEPId.str());
+                    } while(!bDone && unTrials <= MAX_PLACE_TRIALS);
+                    if(!bDone) {
+                        THROW_ARGOSEXCEPTION("Can't place " << cEPId.str());
+                    }
                 }
             }
         } else if(str_controller_type == "charger") {
