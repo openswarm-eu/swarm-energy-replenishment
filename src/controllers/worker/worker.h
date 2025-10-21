@@ -183,6 +183,11 @@ public:
     */
     virtual Real GetCurrentEnergy() const;
 
+    /* 
+    * Set high energy threshold
+    */
+    virtual void SetHighEnergyThreshold(Real f_threshold);
+
     /*
     * Returns true if the robot is moving
     */

@@ -124,6 +124,9 @@
                         delta_transfer_loss="0.500"
                         work_per_step="0.1" />
 
+    <!-- Time in seconds required to commute between working region and charging region -->
+    <commute_region travel_duration="15.0" />
+
     <!-- Distribute workers and chargers -->
     <distribute>
       <!-- <position min="-0.7,-0.8" max="-0.8,0.8" /> -->

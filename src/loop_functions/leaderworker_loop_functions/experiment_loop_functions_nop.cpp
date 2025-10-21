@@ -39,6 +39,8 @@ static const std::string BINARY_FILENAME   = "log_data.pb";
 static const std::string SUMMARY_FILENAME  = "summary.csv";
 static const std::string COMMAND_FILENAME  = "commands.csv";
 
+static const std::string PHYSICS_ENGINE_NAME = "dyn2d";
+
 /****************************************/
 /****************************************/
 // Reference: https://www.geeksforgeeks.org/check-if-a-point-lies-on-or-inside-a-rectangle-set-2/
@@ -50,6 +52,50 @@ bool PointIsInside(Real x1, Real y1, Real x2, Real y2, Real x, Real y)
         return true;
  
     return false;
+}
+
+/****************************************/
+/****************************************/
+
+double calculate_c_w_charged(double c_max, double delta_m_commute, double nu_w_work, double nu_m_move,
+                             double nu_min, double nu_m_charge, double nu_m_transfer,
+                             double xi, double tau, double zeta) 
+{
+    double c_m_max = tau * c_max;
+
+    // delta_m_rest for case 2
+    double delta_m_rest_case_2 = std::max(0.0, 
+        c_max / (nu_w_work + nu_min) * (1 - nu_min / nu_m_charge)
+        - 2 * delta_m_commute * (1 + nu_m_move / nu_m_charge)
+        - c_max / nu_m_charge * (zeta * nu_m_transfer + nu_min) / (nu_m_transfer * xi - nu_min)
+    );
+
+    // c_m_charged
+    double c_m_charged = std::max(0.0, std::min(c_m_max,
+        2 * (nu_m_move + nu_min) * delta_m_commute
+        + c_max * (zeta * nu_m_transfer + nu_min) / (nu_m_transfer * xi - nu_min)
+        + nu_min * delta_m_rest_case_2
+    ));
+
+    // delta_m_rest for case 1
+    double delta_m_rest_case_1 = std::max(0.0, 
+        (c_m_charged - 2 * (nu_m_move + nu_min) * delta_m_commute) / nu_min
+        - (c_m_charged / (nu_m_charge - nu_min) * nu_m_charge
+           - 2 * delta_m_commute * nu_m_move)
+          / (nu_min + nu_min * nu_min / (nu_w_work + nu_min) * (nu_m_transfer * xi - nu_min) / (zeta * nu_m_transfer + nu_min))
+    );
+
+    // delta_transfer
+    double delta_transfer = std::max(0.0, std::min(
+        c_max / (xi * nu_m_transfer - nu_min),
+        (c_m_charged - 2 * (nu_m_move + nu_min) * delta_m_commute) / (zeta * nu_m_transfer + nu_min)
+        - nu_min / (zeta * nu_m_transfer + nu_min) * delta_m_rest_case_1
+    ));
+
+    // c_w_charged
+    double c_w_charged = (xi * nu_m_transfer - nu_min) * delta_transfer;
+
+    return c_w_charged;
 }
 
 /****************************************/
@@ -141,6 +187,9 @@ void CExperimentLoopFunctionsNop::Init(TConfigurationNode& t_node) {
         GetNodeAttributeOrDefault(tExtraBatteryInfo, "delta_recharge", m_fDeltaRecharge, 100.0);
         GetNodeAttributeOrDefault(tExtraBatteryInfo, "delta_transfer_loss", m_fDeltaTransferLoss, 0.0);
         GetNodeAttributeOrDefault(tExtraBatteryInfo, "work_per_step", m_fWorkPerStep, 0.1);
+
+        TConfigurationNode& tCommute = GetNode(config, "commute_region");
+        GetNodeAttributeOrDefault(tCommute, "travel_duration", m_fCommuteDuration, 15.0);
 
         /* ############################# */
         m_fEnergyShared = 0;
@@ -1979,32 +2028,44 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 CVector2 robotTaskPos = m_cTaskPos + CVector2(0, y_shift[i]);
                 cfController->SetWorkingRegion(robotTaskPos);
 
-                if(m_strWorkerType == "worker_mc") {
-                    cEPPos.Set(robotTaskPos.GetX(), 
-                                robotTaskPos.GetY(), 
-                                0.0f);
-                    cEPRot.FromAngleAxis(m_pcRNG->Uniform(CRadians::UNSIGNED_RANGE),
-                                        CVector3::Z);
-                    MoveEntity(pcEP->GetEmbodiedEntity(), cEPPos, cEPRot);
-                } else {
-                    /* Try to place it in the arena */
-                    unTrials = 0;
-                    bool bDone;
-                    do {
-                        /* Choose a random position */
-                        ++unTrials;
-                        cEPPos.Set(m_pcRNG->Uniform(cXRange),
-                                m_pcRNG->Uniform(cYRange),
-                                0.0f);      
-                        cEPRot.FromAngleAxis(m_pcRNG->Uniform(CRadians::UNSIGNED_RANGE),
-                                            CVector3::Z);
-                        bDone = MoveEntity(pcEP->GetEmbodiedEntity(), cEPPos, cEPRot);
+                /* Set high energy threshold */
+                Real ticksPerSecond = 1.0f / CSimulator::GetInstance().GetPhysicsEngine(PHYSICS_ENGINE_NAME).GetSimulationClockTick();
+                double c_max = m_fFullChargeWorker;
+                double delta_m_commute = m_fCommuteDuration;
+                double nu_w_work = m_fDeltaWork * ticksPerSecond;
+                double nu_m_move = m_fDeltaPosWorker * ticksPerSecond;
+                double nu_min = m_fDeltaTime * ticksPerSecond;
+                double nu_m_charge = m_fDeltaRecharge * ticksPerSecond;
+                double nu_m_transfer = m_fDeltaRecharge * ticksPerSecond;
+                double xi = m_fDeltaTransferLoss;
+                double tau = m_fFullChargeCharger / m_fFullChargeWorker;
+                double zeta = un_robots;
 
-                    } while(!bDone && unTrials <= MAX_PLACE_TRIALS);
-                    if(!bDone) {
-                        THROW_ARGOSEXCEPTION("Can't place " << cEPId.str());
-                    }
-                }
+                // // print all variables
+                // LOG << "c_max: " << c_max << std::endl;
+                // LOG << "delta_m_commute: " << delta_m_commute << std::endl;
+                // LOG << "nu_w_work: " << nu_w_work << std::endl;
+                // LOG << "nu_m_move: " << nu_m_move << std::endl;
+                // LOG << "nu_min: " << nu_min << std::endl;
+                // LOG << "nu_m_charge: " << nu_m_charge << std::endl;
+                // LOG << "nu_m_transfer: " << nu_m_transfer << std::endl;
+                // LOG << "xi: " << xi << std::endl;
+                // LOG << "tau: " << tau << std::endl;
+                // LOG << "zeta: " << zeta << std::endl;
+                
+                Real highThreshold = calculate_c_w_charged(c_max, delta_m_commute, nu_w_work, nu_m_move,
+                                                           nu_min, nu_m_charge, nu_m_transfer,
+                                                           xi, tau, zeta);
+                Real highThresholdNormalized = highThreshold / m_fFullChargeWorker;
+                LOG << "High energy threshold for robot " << cEPId.str() << ": " << highThreshold << " (norm: " << highThresholdNormalized << ")" << std::endl;
+                cfController->SetHighEnergyThreshold(highThresholdNormalized);
+
+                cEPPos.Set(robotTaskPos.GetX(), 
+                            robotTaskPos.GetY(), 
+                            0.0f);
+                cEPRot.FromAngleAxis(m_pcRNG->Uniform(CRadians::UNSIGNED_RANGE),
+                                    CVector3::Z);
+                MoveEntity(pcEP->GetEmbodiedEntity(), cEPPos, cEPRot);
             }
         } else if(str_controller_type == "charger") {
             CEPuckChargerEntity* pcEP;

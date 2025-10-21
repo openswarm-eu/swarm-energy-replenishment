@@ -98,6 +98,9 @@ private:
    Real m_fDeltaTransferLoss;
    Real m_fWorkPerStep;
 
+   /* Commute */
+   Real m_fCommuteDuration;
+
    /* Temp stored variables to init chargers */
    std::map<UInt32,CVector2> m_vecTeamCenters;   // key = team_id, value = team_center
    std::map<UInt32,UInt32> m_vecNumChargers;     // key = team_id, value = num_chargers

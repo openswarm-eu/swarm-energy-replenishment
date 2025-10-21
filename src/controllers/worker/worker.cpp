@@ -223,6 +223,13 @@ Real CWorker::GetCurrentEnergy() const {
 /****************************************/
 /****************************************/
 
+void CWorker::SetHighEnergyThreshold(Real f_threshold) {
+    fEnergyHighThres = f_threshold;
+}
+
+/****************************************/
+/****************************************/
+
 bool CWorker::IsMoving() const {
     return bMoving;
 }
