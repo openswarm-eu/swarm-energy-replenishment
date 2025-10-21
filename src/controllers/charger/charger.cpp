@@ -210,6 +210,13 @@ std::string CCharger::GetLastAction() const {
 /****************************************/
 /****************************************/
 
+void CCharger::SetTimestepToWaitAtBase(UInt32 un_duration) {
+    m_unTimestepToWaitAtBase = un_duration;
+}
+
+/****************************************/
+/****************************************/
+
 bool CCharger::IsMoving() const {
     return bMoving;
 }
@@ -488,6 +495,24 @@ void CCharger::Update() {
             }
         }
     }
+
+    /* Stay at the base for a predefined duration */
+    // RLOG << "bFullyCharged: " << bFullyCharged << ", m_unRemainingTimestepToWaitAtBase: " << m_unRemainingTimestepToWaitAtBase << std::endl;
+    // if( !bPrevFullyCharged && bFullyCharged ) {
+    //     // start timer
+    //     m_unRemainingTimestepToWaitAtBase = m_unTimestepToWaitAtBase;
+    // } else if(bPrevFullyCharged && bFullyCharged) {
+    //     // decrement timer
+    //     m_unRemainingTimestepToWaitAtBase--;
+    // } else {
+    //     // reset timer
+    //     m_unRemainingTimestepToWaitAtBase = 0;
+    // }
+
+    // TODO
+    // When it is inside the base, decrement the timer
+    // When it is not inside the base, reset the timer to non-zero
+
 }
 
 /****************************************/
@@ -896,22 +921,27 @@ unsigned char CCharger::Check_LowEnergy(void* data) {
     //     RLOG << "return at: " << ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 10) << std::endl;
     //     RLOG << "est: " << ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 10) * (m_fWorkerMaxCapacity / m_fChargerMaxCapacity) / 100 << std::endl;
     // }
-    RLOG << "Event: lowEnergy " << lowEnergy << std::endl;
+    // RLOG << "Event: lowEnergy " << lowEnergy << std::endl;
     return lowEnergy;
 }
 
 unsigned char CCharger::Check_finishedCharging(void* data) {
     /* Return true when it has stopped sharing energy */
     bool noWorkerRequesting = bPrevSharingEnergy && strEnergyTo.empty();
-    RLOG << "Event: finishedCharging " << noWorkerRequesting << std::endl;
+    // RLOG << "Event: finishedCharging " << noWorkerRequesting << std::endl;
     return noWorkerRequesting;
 }
 
 unsigned char CCharger::Check_timeToWork(void* data) {
     // TEMP
-    bool highEnergy = fEnergy >= fEnergyHighThres;
-    RLOG << "Event: timeToWork " << highEnergy << std::endl;
-    return highEnergy;
+    // bool highEnergy = fEnergy >= fEnergyHighThres;
+    // RLOG << "Event: timeToWork " << highEnergy << std::endl;
+    // return highEnergy;
+    if(m_unRemainingTimestepToWaitAtBase == 0 && Check_AtCharger(nullptr)) {
+        RLOG << "Event: timeToWork " << 1 << std::endl;
+        return true;
+    }
+    return false;
 }
 
 /*

@@ -17,6 +17,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <cmath>
 #include <google/protobuf/util/json_util.h>
 #include <google/protobuf/util/delimited_message_util.h>
 #include <protos/generated/time_step.pb.h>
@@ -57,9 +58,9 @@ bool PointIsInside(Real x1, Real y1, Real x2, Real y2, Real x, Real y)
 /****************************************/
 /****************************************/
 
-double calculate_c_w_charged(double c_max, double delta_m_commute, double nu_w_work, double nu_m_move,
-                             double nu_min, double nu_m_charge, double nu_m_transfer,
-                             double xi, double tau, double zeta) 
+std::unordered_map<std::string, double> calculate_c_w_charged(double c_max, double delta_m_commute, double nu_w_work, double nu_m_move,
+                                                                double nu_min, double nu_m_charge, double nu_m_transfer,
+                                                                double xi, double tau, double zeta) 
 {
     double c_m_max = tau * c_max;
 
@@ -95,7 +96,16 @@ double calculate_c_w_charged(double c_max, double delta_m_commute, double nu_w_w
     // c_w_charged
     double c_w_charged = (xi * nu_m_transfer - nu_min) * delta_transfer;
 
-    return c_w_charged;
+    // delta_m_rest
+    double delta_m_rest = std::max(0.0,
+        (c_m_charged - 2 * delta_m_commute * (nu_m_move + nu_min)) / nu_min
+        - delta_transfer * (zeta * nu_m_transfer + nu_min) / nu_min
+    );
+
+    std::unordered_map<std::string, double> result;
+    result["c_w_charged"] = c_w_charged;
+    result["delta_m_rest"] = delta_m_rest;
+    return result;
 }
 
 /****************************************/
@@ -1977,6 +1987,34 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
             strController = WO_CONTROLLER;
         }
 
+        /* Pre-compute variables for energy threshold calculation */
+        Real ticksPerSecond = 1.0f / CSimulator::GetInstance().GetPhysicsEngine(PHYSICS_ENGINE_NAME).GetSimulationClockTick();
+        double c_max = m_fFullChargeWorker;
+        double delta_m_commute = m_fCommuteDuration;
+        double nu_w_work = m_fDeltaWork * ticksPerSecond;
+        double nu_m_move = m_fDeltaPosWorker * ticksPerSecond;
+        double nu_min = m_fDeltaTime * ticksPerSecond;
+        double nu_m_charge = m_fDeltaRecharge * ticksPerSecond;
+        double nu_m_transfer = m_fDeltaRecharge * ticksPerSecond;
+        double xi = m_fDeltaTransferLoss;
+        double tau = m_fFullChargeCharger / m_fFullChargeWorker;
+        double zeta = un_robots;
+        if(str_controller_type == "charger") {
+            zeta = m_unTotalWorkers;
+        }
+
+        // // print all variables
+        // LOG << "c_max: " << c_max << std::endl;
+        // LOG << "delta_m_commute: " << delta_m_commute << std::endl;
+        // LOG << "nu_w_work: " << nu_w_work << std::endl;
+        // LOG << "nu_m_move: " << nu_m_move << std::endl;
+        // LOG << "nu_min: " << nu_min << std::endl;
+        // LOG << "nu_m_charge: " << nu_m_charge << std::endl;
+        // LOG << "nu_m_transfer: " << nu_m_transfer << std::endl;
+        // LOG << "xi: " << xi << std::endl;
+        // LOG << "tau: " << tau << std::endl;
+        // LOG << "zeta: " << zeta << std::endl;
+
         if(str_controller_type == "worker" || str_controller_type == "worker_mc") {
 
             /* Y-axis shift for the work positions */
@@ -2029,35 +2067,11 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 cfController->SetWorkingRegion(robotTaskPos);
 
                 /* Set high energy threshold */
-                Real ticksPerSecond = 1.0f / CSimulator::GetInstance().GetPhysicsEngine(PHYSICS_ENGINE_NAME).GetSimulationClockTick();
-                double c_max = m_fFullChargeWorker;
-                double delta_m_commute = m_fCommuteDuration;
-                double nu_w_work = m_fDeltaWork * ticksPerSecond;
-                double nu_m_move = m_fDeltaPosWorker * ticksPerSecond;
-                double nu_min = m_fDeltaTime * ticksPerSecond;
-                double nu_m_charge = m_fDeltaRecharge * ticksPerSecond;
-                double nu_m_transfer = m_fDeltaRecharge * ticksPerSecond;
-                double xi = m_fDeltaTransferLoss;
-                double tau = m_fFullChargeCharger / m_fFullChargeWorker;
-                double zeta = un_robots;
-
-                // // print all variables
-                // LOG << "c_max: " << c_max << std::endl;
-                // LOG << "delta_m_commute: " << delta_m_commute << std::endl;
-                // LOG << "nu_w_work: " << nu_w_work << std::endl;
-                // LOG << "nu_m_move: " << nu_m_move << std::endl;
-                // LOG << "nu_min: " << nu_min << std::endl;
-                // LOG << "nu_m_charge: " << nu_m_charge << std::endl;
-                // LOG << "nu_m_transfer: " << nu_m_transfer << std::endl;
-                // LOG << "xi: " << xi << std::endl;
-                // LOG << "tau: " << tau << std::endl;
-                // LOG << "zeta: " << zeta << std::endl;
-                
-                Real highThreshold = calculate_c_w_charged(c_max, delta_m_commute, nu_w_work, nu_m_move,
-                                                           nu_min, nu_m_charge, nu_m_transfer,
-                                                           xi, tau, zeta);
-                Real highThresholdNormalized = highThreshold / m_fFullChargeWorker;
-                LOG << "High energy threshold for robot " << cEPId.str() << ": " << highThreshold << " (norm: " << highThresholdNormalized << ")" << std::endl;
+                auto result = calculate_c_w_charged(c_max, delta_m_commute, nu_w_work, nu_m_move,
+                                                    nu_min, nu_m_charge, nu_m_transfer,
+                                                    xi, tau, zeta);
+                Real highThresholdNormalized = result["c_w_charged"] / m_fFullChargeWorker;
+                LOG << "High energy threshold for robot " << cEPId.str() << ": " << result["c_w_charged"] << " (norm: " << highThresholdNormalized << ")" << std::endl;
                 cfController->SetHighEnergyThreshold(highThresholdNormalized);
 
                 cEPPos.Set(robotTaskPos.GetX(), 
@@ -2106,6 +2120,15 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 cfController->SetMoveDischargeRate(m_fDeltaPosCharger, m_fFullChargeWorker, m_fFullChargeCharger);
                 cfController->SetChargingRegion(m_cFixedChargePos + CVector2(0.1,0));
                 cfController->SetWorkingRegion(m_cTaskPos - CVector2(0.1,0));
+
+                /* Set time to rest at the base station */
+                auto result = calculate_c_w_charged(c_max, delta_m_commute, nu_w_work, nu_m_move,
+                                                    nu_min, nu_m_charge, nu_m_transfer,
+                                                    xi, tau, zeta);
+                // convert from seconds to timesteps and round to nearest integer
+                UInt32 unDurationToRest = static_cast<UInt32>(std::lround(result["delta_m_rest"] * ticksPerSecond));
+                LOG << "Duration to rest at base for charger: " << result["delta_m_rest"] << " seconds = " << unDurationToRest << " steps." << std::endl;
+                cfController->SetTimestepToWaitAtBase(unDurationToRest);
 
                 /* Try to place it in the arena */
                 unTrials = 0;

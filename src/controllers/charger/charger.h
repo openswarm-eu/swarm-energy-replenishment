@@ -171,6 +171,11 @@ public:
     virtual std::string GetLastAction() const;
 
     /*
+    * Set the duration the charger should wait at the base station after fully charging.
+    */
+    virtual void SetTimestepToWaitAtBase(UInt32 un_duration);
+
+    /*
     * Returns true if the robot is moving
     */
     virtual bool IsMoving() const;
@@ -345,6 +350,8 @@ private:
     
     CVector2 cChargingPosition;
     CVector2 cWorkingPosition;
+
+    UInt32 m_unTimestepToWaitAtBase, m_unRemainingTimestepToWaitAtBase;
 
     /* Sharing energy */
     bool bSharingEnergy;
