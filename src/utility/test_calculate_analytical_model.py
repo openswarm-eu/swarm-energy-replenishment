@@ -27,7 +27,7 @@ def calculate_strat2_all_variables(c_max, delta_m_commute, nu_w_work, nu_m_move,
     n_w = zeta * n_m 
 
     delta_m_rest = np.maximum(0, (c_m_charged - 2*delta_m_commute * (nu_m_move + nu_min))/nu_min - delta_transfer * (zeta * nu_m_transfer + nu_min)/nu_min)
-    #print(f"delta_m_rest: {delta_m_rest}")
+    print(f"delta_m_rest: {delta_m_rest}")
     # The maximum of delta_work should already be encapsulated in c_w_charged (delta_transfer, respectively)
     delta_w_work = np.maximum(0, (c_w_charged - (delta_m_charge + 2*delta_m_commute + delta_m_rest) * nu_min) / nu_w_work) # either the remaining capacity divided by the wpork rate when substracting the time the charger needs to get new energy or the time the worker needs to use all its charge for working
     print(f"delta_w_work: {delta_w_work}")
@@ -50,8 +50,10 @@ def calculate_strat2_all_variables(c_max, delta_m_commute, nu_w_work, nu_m_move,
     #duty_cycle = simplify(duty_cycle)
     work_2 = n_w * duty_cycle
 
+    # Time to remain at the base
+    delta_m_wait = delta_m_rest + delta_m_charge
 
-    return c_w_charged, delta_m_rest
+    return c_w_charged, delta_m_wait
 
 # ----------------------------
 # Test the function
@@ -69,8 +71,8 @@ if __name__ == "__main__":
     tau = 6
     zeta = 8
 
-    c_w_charged, delta_m_rest = calculate_strat2_all_variables(c_max, delta_m_commute, nu_w_work, nu_m_move,
+    c_w_charged, delta_m_wait = calculate_strat2_all_variables(c_max, delta_m_commute, nu_w_work, nu_m_move,
                                         nu_min, nu_m_charge, nu_m_transfer,
                                         xi, tau, zeta)
     print(f"c_w_charged: {c_w_charged}")
-    print(f"delta_m_rest: {delta_m_rest}")
+    print(f"delta_m_wait: {delta_m_wait}")

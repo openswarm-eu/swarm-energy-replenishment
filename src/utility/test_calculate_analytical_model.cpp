@@ -22,6 +22,9 @@ std::unordered_map<std::string, double> calculate_c_w_charged(double c_max, doub
         + nu_min * delta_m_rest_case_2
     ));
 
+    // delta_m_charge
+    double delta_m_charge = c_m_charged / (nu_m_charge - nu_min);
+
     // delta_m_rest for case 1
     double delta_m_rest_case_1 = std::max(0.0, 
         (c_m_charged - 2 * (nu_m_move + nu_min) * delta_m_commute) / nu_min
@@ -46,9 +49,13 @@ std::unordered_map<std::string, double> calculate_c_w_charged(double c_max, doub
         - delta_transfer * (zeta * nu_m_transfer + nu_min) / nu_min
     );
 
+    // delta_m_wait
+    double delta_m_wait = delta_m_charge + delta_m_rest;
+
     std::unordered_map<std::string, double> result;
     result["c_w_charged"] = c_w_charged;
     result["delta_m_rest"] = delta_m_rest;
+    result["delta_m_wait"] = delta_m_wait;
     return result;
 }
 
@@ -74,6 +81,7 @@ int main() {
     std::cout << std::fixed << std::setprecision(14);
     std::cout << "c_w_charged: " << result.at("c_w_charged") << std::endl;
     std::cout << "delta_m_rest: " << result.at("delta_m_rest") << std::endl;
+    std::cout << "delta_m_wait: " << result.at("delta_m_wait") << std::endl;
 
     return 0;
 }
