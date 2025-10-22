@@ -2022,17 +2022,16 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
         // LOG << "zeta: " << zeta << std::endl;
 
         if(str_controller_type == "worker" || str_controller_type == "worker_mc") {
-
+            
             /* Y-axis shift for the work positions */
             std::vector<Real> y_shift;
             Real step = 0.1;
-
             for (int i = 0; i < un_robots; ++i) {
                 Real val = 0.05 + i * step;
                 y_shift.push_back(val);
                 y_shift.push_back(-val);
             }
-            
+
             CEPuckEntity* pcEP;
             /* For each robot worker */
             for(size_t i = 0; i < un_robots; ++i) {
@@ -2067,8 +2066,9 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 m_mapEnergyConsumedToWork[cEPId.str()] = 0.0f;
 
                 CWorker* cfController = dynamic_cast<CWorker*>(&pcEP->GetControllableEntity().GetController());
-                cfController->SetMoveDischargeRate(m_fDeltaPosWorker, m_fFullChargeWorker);                
+                cfController->SetMoveDischargeRate(m_fDeltaPosWorker, m_fFullChargeWorker);     
                 cfController->SetChargingRegion(m_cFixedChargePos + CVector2(0, y_shift[i]));
+
                 CVector2 robotTaskPos = m_cTaskPos + CVector2(0, y_shift[i]);
                 cfController->SetWorkingRegion(robotTaskPos);
 
@@ -2086,6 +2086,7 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 LOG << "High energy threshold for robot " << cEPId.str() << ": " << result["c_w_charged"] << " (norm: " << highThresholdNormalized << ")" << std::endl;
                 cfController->SetHighEnergyThreshold(highThresholdNormalized);
 
+                /* Reposition the robot */
                 cEPPos.Set(robotTaskPos.GetX(), 
                             robotTaskPos.GetY(), 
                             0.0f);
@@ -2094,6 +2095,18 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 MoveEntity(pcEP->GetEmbodiedEntity(), cEPPos, cEPRot);
             }
         } else if(str_controller_type == "charger") {
+
+            /* Y-axis shift for the work positions */
+            std::vector<Real> y_shift;
+            Real step = 0.2;
+            for (int i = 0; i < un_robots; ++i) {
+                Real val = i * step;
+                y_shift.push_back(val);
+                if(i > 0) {
+                    y_shift.push_back(-val);
+                }
+            }
+
             CEPuckChargerEntity* pcEP;
 
             /* For each charger */
@@ -2130,8 +2143,12 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
 
                 CCharger* cfController = dynamic_cast<CCharger*>(&pcEP->GetControllableEntity().GetController());
                 cfController->SetMoveDischargeRate(m_fDeltaPosCharger, m_fFullChargeWorker, m_fFullChargeCharger);
-                cfController->SetChargingRegion(m_cFixedChargePos + CVector2(0.1,0));
-                cfController->SetWorkingRegion(m_cTaskPos - CVector2(0.1,0));
+
+                CVector2 robotChargePos = m_cFixedChargePos + CVector2(0.1, y_shift[i]);
+                cfController->SetChargingRegion(robotChargePos);
+
+                CVector2 robotTaskPos = m_cTaskPos + CVector2(-0.1, y_shift[i]);
+                cfController->SetWorkingRegion(robotTaskPos);
 
                 /* Set time to rest at the base station */
                 auto result = calculate_c_w_charged(c_max, delta_m_commute, nu_w_work, nu_m_move,
@@ -2142,23 +2159,13 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 LOG << "Duration to stay at base for charger: " << result["delta_m_wait"] << " seconds = " << unDurationToRest << " steps." << std::endl;
                 cfController->SetTimestepToWaitAtBase(unDurationToRest);
 
-                /* Try to place it in the arena */
-                unTrials = 0;
-                bool bDone;
-                do {
-                    /* Choose a random position */
-                    ++unTrials;
-                    cEPPos.Set(m_pcRNG->Uniform(cXRange),
-                            m_pcRNG->Uniform(cYRange),
-                            0.0f);      
-                    cEPRot.FromAngleAxis(m_pcRNG->Uniform(CRadians::UNSIGNED_RANGE),
-                                        CVector3::Z);
-                    bDone = MoveEntity(pcEP->GetEmbodiedEntity(), cEPPos, cEPRot);
-
-                } while(!bDone && unTrials <= MAX_PLACE_TRIALS);
-                if(!bDone) {
-                    THROW_ARGOSEXCEPTION("Can't place " << cEPId.str());
-                }
+                /* Reposition the robot */
+                cEPPos.Set(robotChargePos.GetX(), 
+                            robotChargePos.GetY(), 
+                            0.0f);
+                cEPRot.FromAngleAxis(m_pcRNG->Uniform(CRadians::UNSIGNED_RANGE),
+                                    CVector3::Z);
+                MoveEntity(pcEP->GetEmbodiedEntity(), cEPPos, cEPRot);
             }
         }
 
