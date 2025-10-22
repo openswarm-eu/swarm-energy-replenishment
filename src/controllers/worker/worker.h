@@ -184,6 +184,11 @@ public:
     virtual Real GetCurrentEnergy() const;
 
     /* 
+    * Set low energy threshold
+    */
+    virtual void SetLowEnergyThreshold(Real f_threshold);
+
+    /* 
     * Set high energy threshold
     */
     virtual void SetHighEnergyThreshold(Real f_threshold);

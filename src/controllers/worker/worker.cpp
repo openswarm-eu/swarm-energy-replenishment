@@ -223,6 +223,13 @@ Real CWorker::GetCurrentEnergy() const {
 /****************************************/
 /****************************************/
 
+void CWorker::SetLowEnergyThreshold(Real f_threshold) {
+    fEnergyLowThres = f_threshold;
+}
+
+/****************************************/
+/****************************************/
+
 void CWorker::SetHighEnergyThreshold(Real f_threshold) {
     fEnergyHighThres = f_threshold;
 }
