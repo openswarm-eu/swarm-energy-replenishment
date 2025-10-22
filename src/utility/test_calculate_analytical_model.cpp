@@ -12,13 +12,13 @@ std::unordered_map<std::string, double> calculate_c_w_charged(double c_max, doub
     double delta_m_rest_case_2 = std::max(0.0, 
         c_max / (nu_w_work + nu_min) * (1 - nu_min / nu_m_charge)
         - 2 * delta_m_commute * (1 + nu_m_move / nu_m_charge)
-        - c_max / nu_m_charge * (zeta * nu_m_transfer + nu_min) / (nu_m_transfer * xi - nu_min)
+        - c_max / nu_m_charge * ((zeta / xi) * nu_m_transfer + nu_min) / (nu_m_transfer - nu_min)
     );
 
     // c_m_charged
     double c_m_charged = std::max(0.0, std::min(c_m_max,
         2 * (nu_m_move + nu_min) * delta_m_commute
-        + c_max * (zeta * nu_m_transfer + nu_min) / (nu_m_transfer * xi - nu_min)
+        + c_max * ((zeta / xi) * nu_m_transfer + nu_min) / (nu_m_transfer - nu_min)
         + nu_min * delta_m_rest_case_2
     ));
 
@@ -28,25 +28,24 @@ std::unordered_map<std::string, double> calculate_c_w_charged(double c_max, doub
     // delta_m_rest for case 1
     double delta_m_rest_case_1 = std::max(0.0, 
         (c_m_charged - 2 * (nu_m_move + nu_min) * delta_m_commute) / nu_min
-        - (c_m_charged / (nu_m_charge - nu_min) * nu_m_charge
-           - 2 * delta_m_commute * nu_m_move)
-          / (nu_min + nu_min * nu_min / (nu_w_work + nu_min) * (nu_m_transfer * xi - nu_min) / (zeta * nu_m_transfer + nu_min))
+        - (c_m_charged / (nu_m_charge - nu_min) * nu_m_charge - 2 * delta_m_commute * nu_m_move)
+        / (nu_min + (nu_min * nu_min) / (nu_w_work + nu_min) * (nu_m_transfer - nu_min) / (((zeta / xi) * nu_m_transfer) + nu_min))
     );
 
     // delta_transfer
     double delta_transfer = std::max(0.0, std::min(
-        c_max / (xi * nu_m_transfer - nu_min),
-        (c_m_charged - 2 * (nu_m_move + nu_min) * delta_m_commute) / (zeta * nu_m_transfer + nu_min)
-        - nu_min / (zeta * nu_m_transfer + nu_min) * delta_m_rest_case_1
+        c_max / (nu_m_transfer - nu_min),
+        (c_m_charged - 2 * (nu_m_move + nu_min) * delta_m_commute) / (((zeta / xi) * nu_m_transfer) + nu_min)
+        - (nu_min / (((zeta / xi) * nu_m_transfer) + nu_min)) * delta_m_rest_case_1
     ));
 
     // c_w_charged
-    double c_w_charged = (xi * nu_m_transfer - nu_min) * delta_transfer;
+    double c_w_charged = (nu_m_transfer - nu_min) * delta_transfer;
 
     // delta_m_rest
     double delta_m_rest = std::max(0.0,
         (c_m_charged - 2 * delta_m_commute * (nu_m_move + nu_min)) / nu_min
-        - delta_transfer * (zeta * nu_m_transfer + nu_min) / nu_min
+        - delta_transfer * (((zeta / xi) * nu_m_transfer) + nu_min) / nu_min
     );
 
     // delta_m_wait
