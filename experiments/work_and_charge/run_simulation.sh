@@ -7,7 +7,7 @@ EXPERIMENT_NAME=work_and_charge
 # Simulation configuration
 STRATEGY_TYPE="mobile" # fixed or mobile
 ENERGY_TYPE="supercap" #  supercap or battery
-VISUALIZATION_ON="true" # true or false
+VISUALIZATION_ON="false" # true or false
 
 if [ "$STRATEGY_TYPE" = "fixed" ]; then
     STRATEGY_NAME=fixed_charger
@@ -70,7 +70,6 @@ WALL_HEIGHT=0.2
 REGION_X=0.3
 
 count=0
-print_count=""
 
 # Output color
 ORANGE='\033[38;5;208m'
@@ -95,10 +94,8 @@ do
     
     ((count++))
 
-    # Set log directory number
-    printf -v print_count "%03d" $k
     # Make trial directory
-    TRIAL_DIR="${STRATEGY_TYPE}_${j}W_${l}C_${i}E_${m}R_${o}L_$print_count"
+    TRIAL_DIR="mobile_tau${TAU_CHARGER_CAPACITY}_zeta${ZETA_NUM_WORKERS}_eta${ETA_WORK_ENERGY_RATE}_dcomm${DELTA_COMMUTE}_$(printf '%03d' $k)"
     TRIAL_DIR_PATH="$RESULT_DIR/$TRIAL_DIR"
     mkdir -p $TRIAL_DIR_PATH
 
@@ -206,15 +203,15 @@ do
     fi
 
     file="$TRIAL_DIR_PATH/summary.csv"
-    line1_num=8
-    line2_num=9
-    line3_num=10
-    line4_num=11
+    line1_num=10
+    line2_num=11
+    line3_num=12
+    line4_num=13
     line1=$(sed "${line1_num}q;d" ${file})
     line2=$(sed "${line2_num}q;d" ${file})
     line3=$(sed "${line3_num}q;d" ${file})
     line4=$(sed "${line4_num}q;d" ${file})
-    # Print the lines on the same line, with the first line in blue and the second line in green
+    # Print the lines on the same line in green color
     echo -e "\033[32m${line1}, ${line2}, ${line3}, ${line4}\033[0m"
 
     # End timing

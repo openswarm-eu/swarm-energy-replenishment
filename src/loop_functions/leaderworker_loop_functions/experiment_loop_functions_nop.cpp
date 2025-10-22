@@ -241,15 +241,15 @@ void CExperimentLoopFunctionsNop::Init(TConfigurationNode& t_node) {
         // m_bNoDemandTasks = false;
         // InitTasks();
 
-        if(m_bLogging) {
-            /* Log arena information */
-            m_cOutput.open(m_strSummaryFilePath.c_str(), std::ios_base::app);
-            // m_cOutput << "ARENA_RADIUS," << m_fArenaRadius << "\n";
-            // m_cOutput << "DEPLOY_RADIUS," << m_fDeploymentRadius << "\n";
-            m_cOutput << "DELTA_WORK," << m_fDeltaWork << "\n";
-            // m_cOutput << "DELTA_POS_CHARGER," << m_fDeltaPosCharger << "\n";
-            m_cOutput.close();
-        }
+        // if(m_bLogging) {
+        //     /* Log arena information */
+        //     m_cOutput.open(m_strSummaryFilePath.c_str(), std::ios_base::app);
+        //     // m_cOutput << "ARENA_RADIUS," << m_fArenaRadius << "\n";
+        //     // m_cOutput << "DEPLOY_RADIUS," << m_fDeploymentRadius << "\n";
+        //     m_cOutput << "DELTA_WORK," << m_fDeltaWork << "\n";
+        //     // m_cOutput << "DELTA_POS_CHARGER," << m_fDeltaPosCharger << "\n";
+        //     m_cOutput.close();
+        // }
     }
     catch(CARGoSException& ex) {
         THROW_ARGOSEXCEPTION_NESTED("Error initializing loop functions!", ex);
@@ -1506,6 +1506,10 @@ void CExperimentLoopFunctionsNop::InitLoggingEnergy() {
     // m_cOutput << "TOTAL_TASKS," << (int)m_unTotalTasks << "\n";
     // m_cOutput << "TASK_DEMAND," << (int)m_unTaskDemand << "\n";
 
+    m_cOutput << "TAU," << (int)(m_fFullChargeCharger/m_fFullChargeWorker) << "\n";
+    m_cOutput << "ETA," << m_fDeltaWork * CSimulator::GetInstance().GetPhysicsEngine(PHYSICS_ENGINE_NAME).GetSimulationClockTick() << "\n";
+    m_cOutput << "DELTA_COMMUTE," << m_fCommuteDuration << "\n";
+
     m_cOutput.close();
 }
 
@@ -1993,14 +1997,14 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
         }
 
         /* Pre-compute variables for energy threshold calculation */
-        Real ticksPerSecond = 1.0f / CSimulator::GetInstance().GetPhysicsEngine(PHYSICS_ENGINE_NAME).GetSimulationClockTick();
+        Real tickDuration = 1.0f / CSimulator::GetInstance().GetPhysicsEngine(PHYSICS_ENGINE_NAME).GetSimulationClockTick();
         double c_max = m_fFullChargeWorker;
         double delta_m_commute = m_fCommuteDuration;
-        double nu_w_work = m_fDeltaWork * ticksPerSecond;
-        double nu_m_move = m_fDeltaPosWorker * ticksPerSecond;
-        double nu_min = m_fDeltaTime * ticksPerSecond;
-        double nu_m_charge = m_fDeltaRecharge * ticksPerSecond;
-        double nu_m_transfer = m_fDeltaRecharge * ticksPerSecond;
+        double nu_w_work = m_fDeltaWork * tickDuration;
+        double nu_m_move = m_fDeltaPosWorker * tickDuration;
+        double nu_min = m_fDeltaTime * tickDuration;
+        double nu_m_charge = m_fDeltaRecharge * tickDuration;
+        double nu_m_transfer = m_fDeltaRecharge * tickDuration;
         double xi = m_fDeltaTransferLoss;
         double tau = m_fFullChargeCharger / m_fFullChargeWorker;
         double zeta = un_robots;
@@ -2154,7 +2158,7 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                                                     nu_min, nu_m_charge, nu_m_transfer,
                                                     xi, tau, zeta);
                 // convert from seconds to timesteps and round to nearest integer
-                UInt32 unDurationToRest = static_cast<UInt32>(std::lround(result["delta_m_wait"] * ticksPerSecond));
+                UInt32 unDurationToRest = static_cast<UInt32>(std::lround(result["delta_m_wait"] * tickDuration));
                 LOG << "Duration to stay at base for charger: " << result["delta_m_wait"] << " seconds = " << unDurationToRest << " steps." << std::endl;
                 cfController->SetTimestepToWaitAtBase(unDurationToRest);
 
