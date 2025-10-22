@@ -2073,7 +2073,7 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 cfController->SetWorkingRegion(robotTaskPos);
 
                 /* Set low energy threshold */
-                Real lowThreshold = 10; // hard-coded low energy of 10 units
+                Real lowThreshold = 1; // hard-coded low energy of 1 unit
                 Real lowThresholdNormalized = lowThreshold / m_fFullChargeWorker; 
                 LOG << "Low energy threshold for robot " << cEPId.str() << ": " << lowThreshold << " (norm: " << lowThresholdNormalized << ")" << std::endl;
                 cfController->SetLowEnergyThreshold(lowThresholdNormalized);
