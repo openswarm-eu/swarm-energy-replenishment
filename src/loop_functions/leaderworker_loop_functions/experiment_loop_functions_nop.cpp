@@ -78,6 +78,9 @@ std::unordered_map<std::string, double> calculate_c_w_charged(double c_max, doub
         + nu_min * delta_m_rest_case_2
     ));
 
+    // delta_m_charge
+    double delta_m_charge = c_m_charged / (nu_m_charge - nu_min);
+
     // delta_m_rest for case 1
     double delta_m_rest_case_1 = std::max(0.0, 
         (c_m_charged - 2 * (nu_m_move + nu_min) * delta_m_commute) / nu_min
@@ -102,9 +105,12 @@ std::unordered_map<std::string, double> calculate_c_w_charged(double c_max, doub
         - delta_transfer * (zeta * nu_m_transfer + nu_min) / nu_min
     );
 
+    // delta_m_wait
+    double delta_m_wait = delta_m_charge + delta_m_rest;
+
     std::unordered_map<std::string, double> result;
     result["c_w_charged"] = c_w_charged;
-    result["delta_m_rest"] = delta_m_rest;
+    result["delta_m_wait"] = delta_m_wait;
     return result;
 }
 
@@ -2132,8 +2138,8 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                                                     nu_min, nu_m_charge, nu_m_transfer,
                                                     xi, tau, zeta);
                 // convert from seconds to timesteps and round to nearest integer
-                UInt32 unDurationToRest = static_cast<UInt32>(std::lround(result["delta_m_rest"] * ticksPerSecond));
-                LOG << "Duration to rest at base for charger: " << result["delta_m_rest"] << " seconds = " << unDurationToRest << " steps." << std::endl;
+                UInt32 unDurationToRest = static_cast<UInt32>(std::lround(result["delta_m_wait"] * ticksPerSecond));
+                LOG << "Duration to stay at base for charger: " << result["delta_m_wait"] << " seconds = " << unDurationToRest << " steps." << std::endl;
                 cfController->SetTimestepToWaitAtBase(unDurationToRest);
 
                 /* Try to place it in the arena */

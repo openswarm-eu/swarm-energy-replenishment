@@ -212,6 +212,7 @@ std::string CCharger::GetLastAction() const {
 
 void CCharger::SetTimestepToWaitAtBase(UInt32 un_duration) {
     m_unTimestepToWaitAtBase = un_duration;
+    m_unRemainingTimestepToWaitAtBase = m_unTimestepToWaitAtBase;
 }
 
 /****************************************/
@@ -497,21 +498,17 @@ void CCharger::Update() {
     }
 
     /* Stay at the base for a predefined duration */
-    // RLOG << "bFullyCharged: " << bFullyCharged << ", m_unRemainingTimestepToWaitAtBase: " << m_unRemainingTimestepToWaitAtBase << std::endl;
-    // if( !bPrevFullyCharged && bFullyCharged ) {
-    //     // start timer
-    //     m_unRemainingTimestepToWaitAtBase = m_unTimestepToWaitAtBase;
-    // } else if(bPrevFullyCharged && bFullyCharged) {
-    //     // decrement timer
-    //     m_unRemainingTimestepToWaitAtBase--;
-    // } else {
-    //     // reset timer
-    //     m_unRemainingTimestepToWaitAtBase = 0;
-    // }
-
-    // TODO
     // When it is inside the base, decrement the timer
     // When it is not inside the base, reset the timer to non-zero
+
+    if(Check_AtCharger(nullptr)) {
+        if(m_unRemainingTimestepToWaitAtBase > 0) {
+            m_unRemainingTimestepToWaitAtBase--;
+            RLOG << "Waiting at base, remaining timesteps: " << m_unRemainingTimestepToWaitAtBase << std::endl;
+        }
+    } else {
+        m_unRemainingTimestepToWaitAtBase = m_unTimestepToWaitAtBase;
+    }
 
 }
 
