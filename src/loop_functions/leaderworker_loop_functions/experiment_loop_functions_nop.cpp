@@ -659,6 +659,9 @@ void CExperimentLoopFunctionsNop::PostStep() {
             try {
                 CCharger& cController = dynamic_cast<CCharger&>(cEPuck.GetControllableEntity().GetController());
                 
+                CBatteryEquippedEntity& cBattery = cEPuck.GetBatterySensorEquippedEntity();
+                m_mapCurrentEnergy[cEPuck.GetId()] = cBattery.GetAvailableCharge();
+
                 if(cController.IsSharingEnergy()) {
                     /* Check if it is trying to share energy */
                     const std::vector<std::string> &vecEnergyToCh = cController.GetEnergyTo();
@@ -779,46 +782,7 @@ void CExperimentLoopFunctionsNop::PostStep() {
             if(cController.IsCharging()) {
                 Real fTransferRatePerStep = m_fDeltaRecharge;
                 Real fTransferEfficiency = m_fDeltaTransferLoss;
-                // if(mapTravelerProviders.count(cEPuck.GetId())) {
-                //     CEPuckEntity& cProvider = mapTravelerProviders[cEPuck.GetId()];
-                //     CBatteryEquippedEntity& cProviderBattery = cProvider.GetBatterySensorEquippedEntity();
 
-                //     /* Check the distance between the two robots and whether the provider has started sharing energy */
-                //     Real fDistPair = Distance(cProvider.GetEmbodiedEntity().GetOriginAnchor().Position, cEPuck.GetEmbodiedEntity().GetOriginAnchor().Position);
-                    
-                //     // LOG << "Check if can transfer... " << cProvider.GetId() << " -> " << cEPuck.GetId() << " (dist = " << fDistPair << ")" << std::endl;
-
-                //     if(fDistPair < cController.GetDistToShareEnergy()) {
-                //         LOG << "Transfering energy! " << cProvider.GetId() << " -> " << cEPuck.GetId() << std::endl;
-                //         Real energyDelta = fTransferRatePerStep * fTransferEfficiency;
-                //         Real newChargeProvider, newChargeReceiver;
-                //         Real excessEnergy = 0;
-
-                //         /* Increase receiver energy */
-                //         newChargeReceiver = cBattery.GetAvailableCharge() + energyDelta;
-                //         if(newChargeReceiver > cBattery.GetFullCharge()) {
-                //             cBattery.SetAvailableCharge(cBattery.GetFullCharge());
-                //             excessEnergy = newChargeReceiver - cBattery.GetFullCharge();
-                //             m_fEnergyShared += energyDelta - excessEnergy;
-                //         } else {
-                //             cBattery.SetAvailableCharge(newChargeReceiver);
-                //             m_fEnergyShared += energyDelta;
-                //         }
-
-                //         /* Reduce provider energy */
-                //         if(excessEnergy > 0) {
-                //             newChargeProvider = cProviderBattery.GetAvailableCharge() - energyDelta + excessEnergy;
-                //         } else
-                //             newChargeProvider = cProviderBattery.GetAvailableCharge() - energyDelta;
-
-                //         if(newChargeProvider <= 0)
-                //             cProviderBattery.SetAvailableCharge(0);
-                //         else
-                //             cProviderBattery.SetAvailableCharge(newChargeProvider);
-
-                //     }
-                // } 
-                // else 
                 if(mapChargerProviders.count(cEPuck.GetId())) {
                     CEPuckChargerEntity& cProvider = mapChargerProviders[cEPuck.GetId()];
                     CBatteryEquippedEntity& cProviderBattery = cProvider.GetBatterySensorEquippedEntity();
@@ -831,11 +795,25 @@ void CExperimentLoopFunctionsNop::PostStep() {
                     // if(fDistPair < cProviderController.GetDistToShareEnergy()) {
                         LOG << "Transfering energy! " << cProvider.GetId() << " -> " << cEPuck.GetId() << std::endl;
                         Real energyDelta = fTransferRatePerStep;
-                        Real totalEnergy = fTransferRatePerStep / fTransferEfficiency;
-                        // LOG << "Energy delta: " << energyDelta << std::endl;
-                        // LOG << "fTransferRatePerStep" << fTransferRatePerStep << std::endl;
                         Real newChargeProvider, newChargeReceiver;
                         Real excessEnergy = 0;
+
+                        /* Check if charger has enough energy to return to the base region */
+                        Real energyToReturn = cProviderController.GetEnergyToCharger() * m_fFullChargeCharger;
+                        if(m_mapCurrentEnergy[cProvider.GetId()] > energyToReturn + energyDelta * (1 / fTransferEfficiency) * m_unTotalWorkers) {
+                            // LOG << "EnergyToReturn: " << energyToReturn << ", energyDelta*workers: " << energyDelta * m_unTotalWorkers << std::endl;
+                            // LOG << "Charger has enough energy to return to the base region." << std::endl;
+                            // LOG << "Available charge: " << cProviderBattery.GetAvailableCharge() << std::endl;
+                        } else {
+                            Real oldEnergyDelta = energyDelta;
+                            // LOG << "EnergyToReturn: " << energyToReturn << ", energyDelta*workers: " << energyDelta * m_unTotalWorkers << std::endl;
+                            // LOG << "Charger does not have enough energy to return to the base region." << std::endl;
+                            energyDelta = (m_mapCurrentEnergy[cProvider.GetId()] - energyToReturn) / m_unTotalWorkers * fTransferEfficiency;
+                            // LOG << "Reducing energy delta from: " << oldEnergyDelta << " to: " << energyDelta << std::endl;
+                            // LOG << "Available charge: " << cProviderBattery.GetAvailableCharge() << std::endl;
+                        }
+
+                        Real totalEnergy = energyDelta / fTransferEfficiency;
 
                         /* Increase receiver energy */
                         newChargeReceiver = cBattery.GetAvailableCharge() + energyDelta;
@@ -860,12 +838,6 @@ void CExperimentLoopFunctionsNop::PostStep() {
                             cProviderBattery.SetAvailableCharge(0);
                         else
                             cProviderBattery.SetAvailableCharge(newChargeProvider);
-
-                        // cController.SetLED(CColor::MAGENTA);
-                        // cProviderController.SetLED(CColor::MAGENTA);
-                    // } else {
-                    //     // cController.SetLED(CColor::GREEN);
-                    //     // cProviderController.SetLED(CColor::BLUE);
                     // }
                 }
             }
@@ -2086,7 +2058,7 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 auto result = calculate_c_w_charged(c_max, delta_m_commute, nu_w_work, nu_m_move,
                                                     nu_min, nu_m_charge, nu_m_transfer,
                                                     xi, tau, zeta);
-                Real highThresholdNormalized = result["c_w_charged"] / m_fFullChargeWorker;
+                Real highThresholdNormalized = (result["c_w_charged"] - 1) / m_fFullChargeWorker; // -1 unit of energy for buffer
                 LOG << "High energy threshold for robot " << cEPId.str() << ": " << result["c_w_charged"] << " (norm: " << highThresholdNormalized << ")" << std::endl;
                 cfController->SetHighEnergyThreshold(highThresholdNormalized);
 

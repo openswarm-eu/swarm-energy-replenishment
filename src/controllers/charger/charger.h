@@ -200,6 +200,11 @@ public:
     */
     virtual void SetWorkingRegion(const CVector2& c_pos);
 
+    /* 
+    * Get energy needed to return to the base region [0,1]
+    */
+    virtual Real GetEnergyToCharger() const;
+
     /*
     * Get the IDs of the robots it is sharing energy to
     */
@@ -369,6 +374,7 @@ private:
     Real m_fWorkerMaxCapacity, m_fChargerMaxCapacity;
     Real m_fDistToMC; // Distance to the mobile charger (used in the follower state) in cm
     Real m_fDistToCharger;
+    Real m_fEnergyToCharger;
     Real m_fDesiredAngleOffset;
 };
 

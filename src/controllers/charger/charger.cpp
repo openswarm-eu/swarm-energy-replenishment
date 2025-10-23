@@ -253,6 +253,13 @@ void CCharger::SetWorkingRegion(const CVector2& c_pos) {
 /****************************************/
 /****************************************/
 
+Real CCharger::GetEnergyToCharger() const {
+    return m_fEnergyToCharger;
+}
+
+/****************************************/
+/****************************************/
+
 std::vector<std::string> CCharger::GetEnergyTo() const {
     return strEnergyTo;
 }
@@ -474,6 +481,7 @@ void CCharger::Update() {
 
     /* Distance to charging area */
     m_fDistToCharger = pos2d.GetX() - cChargingPosition.GetX();
+    m_fEnergyToCharger = ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 1) * (m_fWorkerMaxCapacity / m_fChargerMaxCapacity) / 100; // +1 unit of energy for buffer
 
     /* Check whether there are any workers who are requesting energy */
     if( !bSharingEnergy ) { 
