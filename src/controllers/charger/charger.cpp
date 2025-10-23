@@ -909,7 +909,8 @@ unsigned char CCharger::Check_LowEnergy(void* data) {
     // RLOG << "m_fDistToCharger: " << m_fDistToCharger << std::endl;
     // RLOG << "m_sWheelTurningParams.MaxSpeed: " << m_sWheelTurningParams.MaxSpeed/100 << std::endl;
     // RLOG << "m_fDeltaPos: " << m_fDeltaPos << std::endl;
-    // RLOG << "energyToReturn: " << (m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) << std::endl;
+    // RLOG << "energyToReturn: " << ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 10) * (m_fWorkerMaxCapacity / m_fChargerMaxCapacity) / 100 << std::endl;
+    // RLOG << "fEnergy: " << fEnergy << std::endl;
     bool lowEnergy = fEnergy < ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 10) * (m_fWorkerMaxCapacity / m_fChargerMaxCapacity) / 100;
     // RLOG << "Event: lowEnergy " << lowEnergy << std::endl;
     // if(GetId() == "C1") {

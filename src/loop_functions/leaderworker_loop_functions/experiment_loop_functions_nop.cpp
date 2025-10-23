@@ -830,7 +830,8 @@ void CExperimentLoopFunctionsNop::PostStep() {
 
                     // if(fDistPair < cProviderController.GetDistToShareEnergy()) {
                         LOG << "Transfering energy! " << cProvider.GetId() << " -> " << cEPuck.GetId() << std::endl;
-                        Real energyDelta = fTransferRatePerStep * (1 - fTransferEfficiency);
+                        Real energyDelta = fTransferRatePerStep;
+                        Real totalEnergy = fTransferRatePerStep / fTransferEfficiency;
                         // LOG << "Energy delta: " << energyDelta << std::endl;
                         // LOG << "fTransferRatePerStep" << fTransferRatePerStep << std::endl;
                         Real newChargeProvider, newChargeReceiver;
@@ -842,18 +843,18 @@ void CExperimentLoopFunctionsNop::PostStep() {
                             cBattery.SetAvailableCharge(cBattery.GetFullCharge());
                             excessEnergy = newChargeReceiver - cBattery.GetFullCharge();
                             m_fEnergyShared += energyDelta - excessEnergy;
-                            m_fEnergyLost += fTransferRatePerStep * fTransferEfficiency;
+                            m_fEnergyLost += totalEnergy - energyDelta;
                         } else {
                             cBattery.SetAvailableCharge(newChargeReceiver);
                             m_fEnergyShared += energyDelta;
-                            m_fEnergyLost += fTransferRatePerStep * fTransferEfficiency;
+                            m_fEnergyLost += totalEnergy - energyDelta;
                         }
 
                         /* Reduce provider energy */
                         if(excessEnergy > 0) {
-                            newChargeProvider = cProviderBattery.GetAvailableCharge() - fTransferRatePerStep + excessEnergy;
+                            newChargeProvider = cProviderBattery.GetAvailableCharge() - totalEnergy + excessEnergy;
                         } else
-                            newChargeProvider = cProviderBattery.GetAvailableCharge() - fTransferRatePerStep;
+                            newChargeProvider = cProviderBattery.GetAvailableCharge() - totalEnergy;
 
                         if(newChargeProvider <= 0)
                             cProviderBattery.SetAvailableCharge(0);
@@ -2055,9 +2056,9 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 /* Set custom battery model */
                 CBatteryEquippedEntity& cBattery = pcEP->GetBatterySensorEquippedEntity();
                 cBattery.SetFullCharge(m_fFullChargeWorker);
-                // Find a random number between the two values in m_fStartChargeWorker first and second
-                Real fEnergyVariation = m_pcRNG->Uniform(CRange<Real>(m_fStartChargeWorker.first, m_fStartChargeWorker.second));
-                cBattery.SetAvailableCharge(fEnergyVariation);
+                // // Find a random number between the two values in m_fStartChargeWorker first and second
+                // Real fEnergyVariation = m_pcRNG->Uniform(CRange<Real>(m_fStartChargeWorker.first, m_fStartChargeWorker.second));
+                // cBattery.SetAvailableCharge(fEnergyVariation);
                 // if(m_strBatteryDischargeModel == "fixed_time_motion") {
                 //     CBatteryDischargeModelFixedTimeMotion* pcDischargeModel = new CBatteryDischargeModelFixedTimeMotion(m_fDeltaTime, m_fDeltaPosWorker);
                 //     cBattery.SetDischargeModel(pcDischargeModel);
@@ -2088,6 +2089,9 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 Real highThresholdNormalized = result["c_w_charged"] / m_fFullChargeWorker;
                 LOG << "High energy threshold for robot " << cEPId.str() << ": " << result["c_w_charged"] << " (norm: " << highThresholdNormalized << ")" << std::endl;
                 cfController->SetHighEnergyThreshold(highThresholdNormalized);
+
+                /* Set initial charge */
+                cBattery.SetAvailableCharge(result["c_w_charged"] + 0.05f); // start slightly above high threshold
 
                 /* Reposition the robot */
                 cEPPos.Set(robotTaskPos.GetX(), 
