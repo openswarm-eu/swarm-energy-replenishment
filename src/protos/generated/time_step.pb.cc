@@ -106,7 +106,7 @@ PROTOBUF_CONSTEXPR Task::Task(
   , /*decltype(_impl_._cached_size_)*/{}
   , /*decltype(_impl_.name_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
   , /*decltype(_impl_.position_)*/nullptr
-  , /*decltype(_impl_.demand_)*/uint64_t{0u}
+  , /*decltype(_impl_.demand_)*/0
   , /*decltype(_impl_.requiredrobots_)*/uint64_t{0u}
   , /*decltype(_impl_.currentrobots_)*/uint64_t{0u}
   , /*decltype(_impl_.radius_)*/0} {}
@@ -266,7 +266,7 @@ const char descriptor_table_protodef_time_5fstep_2eproto[] PROTOBUF_SECTION_VARI
   "B\014\n\n_totalSentB\020\n\016_totalReceivedB\t\n\007_act"
   "ionB\016\n\014_energyLevelB\013\n\t_moveTypeB\014\n\n_isW"
   "orkingB\r\n\013_isChargingB\013\n\t_isMoving\"\321\001\n\004T"
-  "ask\022\014\n\004name\030\001 \001(\t\022\016\n\006demand\030\002 \001(\004\022\033\n\016req"
+  "ask\022\014\n\004name\030\001 \001(\t\022\016\n\006demand\030\002 \001(\001\022\033\n\016req"
   "uiredRobots\030\003 \001(\004H\000\210\001\001\022\032\n\rcurrentRobots\030"
   "\004 \001(\004H\001\210\001\001\022 \n\010position\030\005 \001(\0132\t.PositionH"
   "\002\210\001\001\022\023\n\006radius\030\006 \001(\001H\003\210\001\001B\021\n\017_requiredRo"
@@ -2083,7 +2083,7 @@ inline void Task::SharedCtor(
     , /*decltype(_impl_._cached_size_)*/{}
     , decltype(_impl_.name_){}
     , decltype(_impl_.position_){nullptr}
-    , decltype(_impl_.demand_){uint64_t{0u}}
+    , decltype(_impl_.demand_){0}
     , decltype(_impl_.requiredrobots_){uint64_t{0u}}
     , decltype(_impl_.currentrobots_){uint64_t{0u}}
     , decltype(_impl_.radius_){0}
@@ -2125,7 +2125,7 @@ void Task::Clear() {
     GOOGLE_DCHECK(_impl_.position_ != nullptr);
     _impl_.position_->Clear();
   }
-  _impl_.demand_ = uint64_t{0u};
+  _impl_.demand_ = 0;
   if (cached_has_bits & 0x0000000eu) {
     ::memset(&_impl_.requiredrobots_, 0, static_cast<size_t>(
         reinterpret_cast<char*>(&_impl_.radius_) -
@@ -2152,11 +2152,11 @@ const char* Task::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx) {
         } else
           goto handle_unusual;
         continue;
-      // uint64 demand = 2;
+      // double demand = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 16)) {
-          _impl_.demand_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
-          CHK_(ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 17)) {
+          _impl_.demand_ = ::PROTOBUF_NAMESPACE_ID::internal::UnalignedLoad<double>(ptr);
+          ptr += sizeof(double);
         } else
           goto handle_unusual;
         continue;
@@ -2235,10 +2235,14 @@ uint8_t* Task::_InternalSerialize(
         1, this->_internal_name(), target);
   }
 
-  // uint64 demand = 2;
-  if (this->_internal_demand() != 0) {
+  // double demand = 2;
+  static_assert(sizeof(uint64_t) == sizeof(double), "Code assumes uint64_t and double are the same size.");
+  double tmp_demand = this->_internal_demand();
+  uint64_t raw_demand;
+  memcpy(&raw_demand, &tmp_demand, sizeof(tmp_demand));
+  if (raw_demand != 0) {
     target = stream->EnsureSpace(target);
-    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(2, this->_internal_demand(), target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(2, this->_internal_demand(), target);
   }
 
   // optional uint64 requiredRobots = 3;
@@ -2297,9 +2301,13 @@ size_t Task::ByteSizeLong() const {
         *_impl_.position_);
   }
 
-  // uint64 demand = 2;
-  if (this->_internal_demand() != 0) {
-    total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(this->_internal_demand());
+  // double demand = 2;
+  static_assert(sizeof(uint64_t) == sizeof(double), "Code assumes uint64_t and double are the same size.");
+  double tmp_demand = this->_internal_demand();
+  uint64_t raw_demand;
+  memcpy(&raw_demand, &tmp_demand, sizeof(tmp_demand));
+  if (raw_demand != 0) {
+    total_size += 1 + 8;
   }
 
   if (cached_has_bits & 0x0000000eu) {
@@ -2344,7 +2352,11 @@ void Task::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_
     _this->_internal_mutable_position()->::Position::MergeFrom(
         from._internal_position());
   }
-  if (from._internal_demand() != 0) {
+  static_assert(sizeof(uint64_t) == sizeof(double), "Code assumes uint64_t and double are the same size.");
+  double tmp_demand = from._internal_demand();
+  uint64_t raw_demand;
+  memcpy(&raw_demand, &tmp_demand, sizeof(tmp_demand));
+  if (raw_demand != 0) {
     _this->_internal_set_demand(from._internal_demand());
   }
   cached_has_bits = from._impl_._has_bits_[0];

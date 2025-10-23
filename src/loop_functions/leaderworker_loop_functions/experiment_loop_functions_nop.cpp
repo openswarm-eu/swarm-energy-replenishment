@@ -1147,14 +1147,14 @@ void CExperimentLoopFunctionsNop::PostStep() {
                 m_cOutput.open(m_strSummaryFilePath.c_str(), std::ios_base::app);
                 m_cOutput << "\n";
                 m_cOutput << "FINISH_TIME," << final_time << "\n";
-                m_cOutput << "POINTS SCORED," << (int)m_unPointsObtained << "\n";
+                m_cOutput << "POINTS SCORED," << m_unPointsObtained << "\n";
                 m_cOutput << "DEPLETED WORKERS," << (int)m_setDepletedWorkers.size() << "\n";
                 m_cOutput << "DEPLETED CHARGERS," << (int)m_setDepletedChargers.size() << "\n";
                 m_cOutput << "ENERGY LOST, " << m_fEnergyLost << "\n";
                 // m_cOutput << "TASK_STATUS,FINISHED" << "\n";
                 m_cOutput.close();
                 std::cout << "[LOG] Reached time limit!" << std::endl;
-                std::cout << "[LOG] Score: " << (int)m_unPointsObtained << std::endl;
+                std::cout << "[LOG] Score: " << m_unPointsObtained << std::endl;
                 // std::cout << "[LOG] Mission time: " << final_time << std::endl;
                 // std::cout << "[LOG] All tasks completed" << std::endl;
                 std::cout << "[LOG] TERMINATING SIMULATION ..." << std::endl;
@@ -1166,11 +1166,11 @@ void CExperimentLoopFunctionsNop::PostStep() {
                 m_cOutput.open(m_strSummaryFilePath.c_str(), std::ios_base::app);
                 m_cOutput << "\n";
                 m_cOutput << "FINISH_TIME," << final_time << "\n";
-                m_cOutput << "POINTS SCORED," << (int)m_unPointsObtained << "\n";
+                m_cOutput << "POINTS SCORED," << m_unPointsObtained << "\n";
                 // m_cOutput << "TASK_STATUS,FINISHED" << "\n";
                 m_cOutput.close();
                 std::cout << "[LOG] Tasks completed!" << std::endl;
-                std::cout << "[LOG] Score: " << (int)m_unPointsObtained << std::endl;
+                std::cout << "[LOG] Score: " << m_unPointsObtained << std::endl;
                 // std::cout << "[LOG] Mission time: " << final_time << std::endl;
                 // std::cout << "[LOG] All tasks completed" << std::endl;
                 std::cout << "[LOG] TERMINATING SIMULATION ..." << std::endl;
@@ -1184,11 +1184,11 @@ void CExperimentLoopFunctionsNop::PostStep() {
         m_cOutput.open(m_strSummaryFilePath.c_str(), std::ios_base::app);
         m_cOutput << "\n";
         m_cOutput << "FINISH_TIME," << final_time << "\n";
-        m_cOutput << "POINTS SCORED," << (int)m_unPointsObtained << "\n";
+        m_cOutput << "POINTS SCORED," << m_unPointsObtained << "\n";
         // m_cOutput << "TASK_STATUS,FINISHED" << "\n";
         m_cOutput.close();
         std::cout << "[LOG] Reached time limit!" << std::endl;
-        std::cout << "[LOG] Score: " << (int)m_unPointsObtained << std::endl;
+        std::cout << "[LOG] Score: " << m_unPointsObtained << std::endl;
         // std::cout << "[LOG] Mission time: " << final_time << std::endl;
         // std::cout << "[LOG] All tasks completed" << std::endl;
         std::cout << "[LOG] TERMINATING SIMULATION ..." << std::endl;
@@ -1631,71 +1631,71 @@ void CExperimentLoopFunctionsNop::InitRobots() {
 /****************************************/
 /****************************************/
 
-void CExperimentLoopFunctionsNop::InitTasks() {
-    /*
-    * Initialize tasks
-    */
+// void CExperimentLoopFunctionsNop::InitTasks() {
+//     /*
+//     * Initialize tasks
+//     */
 
-    LOG << "[LOG] Adding tasks..." << std::endl;
+//     LOG << "[LOG] Adding tasks..." << std::endl;
 
-    /* ID counts */
-    UInt32 m_unNextTaskId = 1;
-    /* Meta data */
-    size_t m_unTotalTasks = 0;
-    UInt32 m_unTaskDemand = 0; 
-    /* Get the teams node */
-    TConfigurationNode& ts_tree = GetNode(config, "tasks");
-    /* Go through the nodes (tasks) */
-    TConfigurationNodeIterator itDistr;
-    for(itDistr = itDistr.begin(&ts_tree);
-        itDistr != itDistr.end();
-        ++itDistr) {
+//     /* ID counts */
+//     UInt32 m_unNextTaskId = 1;
+//     /* Meta data */
+//     size_t m_unTotalTasks = 0;
+//     UInt32 m_unTaskDemand = 0; 
+//     /* Get the teams node */
+//     TConfigurationNode& ts_tree = GetNode(config, "tasks");
+//     /* Go through the nodes (tasks) */
+//     TConfigurationNodeIterator itDistr;
+//     for(itDistr = itDistr.begin(&ts_tree);
+//         itDistr != itDistr.end();
+//         ++itDistr) {
 
-        m_bTaskExists = true;
-        m_bTaskComplete = false;
+//         m_bTaskExists = true;
+//         m_bTaskComplete = false;
 
-        /* Get current node (task) */
-        TConfigurationNode& tDistr = *itDistr;
-        /* Task center */
-        CVector2 cCenter;
-        GetNodeAttribute(tDistr, "position", cCenter);
-        /* Task radius */
-        Real fRadius;
-        GetNodeAttribute(tDistr, "radius", fRadius);
-        /* Task Height */
-        Real fHeight;
-        GetNodeAttribute(tDistr, "height", fHeight);
-        /* Task demand */
-        UInt32 unDemand;
-        GetNodeAttribute(tDistr, "task_demand", unDemand);
-        /* Minimum robot constraint */
-        UInt32 unMinRobotNum;
-        GetNodeAttribute(tDistr, "minimum_robot_num", unMinRobotNum);
-        /* Maximum robot constraint */
-        UInt32 unMaxRobotNum;
-        GetNodeAttribute(tDistr, "maximum_robot_num", unMaxRobotNum);
+//         /* Get current node (task) */
+//         TConfigurationNode& tDistr = *itDistr;
+//         /* Task center */
+//         CVector2 cCenter;
+//         GetNodeAttribute(tDistr, "position", cCenter);
+//         /* Task radius */
+//         Real fRadius;
+//         GetNodeAttribute(tDistr, "radius", fRadius);
+//         /* Task Height */
+//         Real fHeight;
+//         GetNodeAttribute(tDistr, "height", fHeight);
+//         /* Task demand */
+//         UInt32 unDemand;
+//         GetNodeAttribute(tDistr, "task_demand", unDemand);
+//         /* Minimum robot constraint */
+//         UInt32 unMinRobotNum;
+//         GetNodeAttribute(tDistr, "minimum_robot_num", unMinRobotNum);
+//         /* Maximum robot constraint */
+//         UInt32 unMaxRobotNum;
+//         GetNodeAttribute(tDistr, "maximum_robot_num", unMaxRobotNum);
         
-        /* Place Tasks */
-        // PlaceTask(cCenter, fRadius, unDemand, unMinRobotNum, unMaxRobotNum, m_unNextTaskId);
-        PlaceCircleTask(cCenter, fRadius, fHeight, unDemand, unMinRobotNum, unMaxRobotNum, m_unNextTaskId);
+//         /* Place Tasks */
+//         // PlaceTask(cCenter, fRadius, unDemand, unMinRobotNum, unMaxRobotNum, m_unNextTaskId);
+//         PlaceCircleTask(cCenter, fRadius, fHeight, unDemand, unMinRobotNum, unMaxRobotNum, m_unNextTaskId);
 
-        /* Update task count */
-        m_unNextTaskId++;
+//         /* Update task count */
+//         m_unNextTaskId++;
 
-        m_unTotalTasks++;
-        m_unTaskDemand += unDemand;
-    }
+//         m_unTotalTasks++;
+//         m_unTaskDemand += unDemand;
+//     }
 
-    if(m_bLogging) {
-        /* Write to file */
-        m_cOutput.open(m_strSummaryFilePath.c_str(), std::ios_base::app);
-        m_cOutput << "TOTAL_TASKS," << (int)m_unTotalTasks << "\n";
-        m_cOutput << "TASK_DEMAND," << (int)m_unTaskDemand << "\n";
-        m_cOutput.close();
-    }
+//     if(m_bLogging) {
+//         /* Write to file */
+//         m_cOutput.open(m_strSummaryFilePath.c_str(), std::ios_base::app);
+//         m_cOutput << "TOTAL_TASKS," << (int)m_unTotalTasks << "\n";
+//         m_cOutput << "TASK_DEMAND," << (int)m_unTaskDemand << "\n";
+//         m_cOutput.close();
+//     }
 
-    LOG << "[LOG] Added tasks" << std::endl;
-}
+//     LOG << "[LOG] Added tasks" << std::endl;
+// }
 
 /****************************************/
 /****************************************/
@@ -1831,7 +1831,7 @@ void CExperimentLoopFunctionsNop::InitTask() {
     UInt32 unTotalTasks = 1;
     UInt32 unInitTasks = 1;
     m_unTotalTasks = unTotalTasks;
-    m_unTaskDemand = 0; 
+    // m_unTaskDemand = 0; 
     m_unPointsObtained = 0;
 
     m_bTaskExists = true;
@@ -1850,7 +1850,7 @@ void CExperimentLoopFunctionsNop::InitTask() {
     // UInt32 unMaxRobotNum = 100;
 
     m_unTotalTasks++;
-    m_unTaskDemand += unDemand;
+    // m_unTaskDemand += unDemand;
 
     // // LOG << "Arena radius " << m_fArenaRadius << std::endl;
     LOG << "Task pos " << m_cTaskPos.GetX() << ", " << m_cTaskPos.GetY() << std::endl;

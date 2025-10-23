@@ -1330,13 +1330,13 @@ class Task final :
       ::Position* position);
   ::Position* unsafe_arena_release_position();
 
-  // uint64 demand = 2;
+  // double demand = 2;
   void clear_demand();
-  uint64_t demand() const;
-  void set_demand(uint64_t value);
+  double demand() const;
+  void set_demand(double value);
   private:
-  uint64_t _internal_demand() const;
-  void _internal_set_demand(uint64_t value);
+  double _internal_demand() const;
+  void _internal_set_demand(double value);
   public:
 
   // optional uint64 requiredRobots = 3;
@@ -1390,7 +1390,7 @@ class Task final :
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr name_;
     ::Position* position_;
-    uint64_t demand_;
+    double demand_;
     uint64_t requiredrobots_;
     uint64_t currentrobots_;
     double radius_;
@@ -2453,22 +2453,22 @@ inline void Task::set_allocated_name(std::string* name) {
   // @@protoc_insertion_point(field_set_allocated:Task.name)
 }
 
-// uint64 demand = 2;
+// double demand = 2;
 inline void Task::clear_demand() {
-  _impl_.demand_ = uint64_t{0u};
+  _impl_.demand_ = 0;
 }
-inline uint64_t Task::_internal_demand() const {
+inline double Task::_internal_demand() const {
   return _impl_.demand_;
 }
-inline uint64_t Task::demand() const {
+inline double Task::demand() const {
   // @@protoc_insertion_point(field_get:Task.demand)
   return _internal_demand();
 }
-inline void Task::_internal_set_demand(uint64_t value) {
+inline void Task::_internal_set_demand(double value) {
   
   _impl_.demand_ = value;
 }
-inline void Task::set_demand(uint64_t value) {
+inline void Task::set_demand(double value) {
   _internal_set_demand(value);
   // @@protoc_insertion_point(field_set:Task.demand)
 }

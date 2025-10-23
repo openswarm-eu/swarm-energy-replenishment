@@ -56,7 +56,7 @@ private:
    bool m_bTaskComplete;
    UInt32 m_unNextTaskId;
    UInt32 m_unTotalTasks;
-   UInt32 m_unTaskDemand;
+   // UInt32 m_unTaskDemand;
    Real m_unPointsObtained;
    bool m_bNoDemandTasks;
 
@@ -146,8 +146,8 @@ private:
    // void InitChargers();
 
    /* Init tasks */
-   void InitTasks(); // Testing
-   void InitTasksCircular(); // Scalability analysis experiment
+   // void InitTasks(); // Testing
+   // void InitTasksCircular(); // Scalability analysis experiment
    void InitTask();
 
    /* Assign tasks */
