@@ -48,6 +48,16 @@ std::unordered_map<std::string, double> calculate_c_w_charged(double c_max, doub
         - delta_transfer * (((zeta / xi) * nu_m_transfer) + nu_min) / nu_min
     );
 
+    // delta_w_work
+    double delta_w_work = std::max(0.0,
+        (c_w_charged - (delta_m_charge + 2 * delta_m_commute + delta_m_rest) * nu_min) / nu_w_work
+    );
+
+    // delta_w_rest
+    double delta_w_rest = std::max(0.0,
+        (c_w_charged - delta_w_work * (nu_w_work + nu_min)) / nu_min
+    );
+
     // delta_m_wait
     double delta_m_wait = delta_m_charge + delta_m_rest;
 
@@ -55,21 +65,22 @@ std::unordered_map<std::string, double> calculate_c_w_charged(double c_max, doub
     result["c_w_charged"] = c_w_charged;
     result["delta_m_rest"] = delta_m_rest;
     result["delta_m_wait"] = delta_m_wait;
+    result["delta_w_rest"] = delta_w_rest;
     return result;
 }
 
 int main() {
     // Sample input values
     double c_max = 100;
-    double delta_m_commute = 15;
-    double nu_w_work = 0.5;
+    double delta_m_commute = 40;
+    double nu_w_work = 1;
     double nu_m_move = 1;
     double nu_min = 0.005;
     double nu_m_charge = 100;
     double nu_m_transfer = 100;
     double xi = 0.5;
-    double tau = 6;
-    double zeta = 8;
+    double tau = 5;
+    double zeta = 5;
 
     // Call the function
     auto result = calculate_c_w_charged(c_max, delta_m_commute, nu_w_work, nu_m_move,
@@ -79,8 +90,8 @@ int main() {
 
     std::cout << std::fixed << std::setprecision(14);
     std::cout << "c_w_charged: " << result.at("c_w_charged") << std::endl;
-    std::cout << "delta_m_rest: " << result.at("delta_m_rest") << std::endl;
     std::cout << "delta_m_wait: " << result.at("delta_m_wait") << std::endl;
+    std::cout << "delta_w_rest: " << result.at("delta_w_rest") << std::endl;
 
     return 0;
 }

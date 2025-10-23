@@ -104,12 +104,23 @@ std::unordered_map<std::string, double> calculate_c_w_charged(double c_max, doub
         - delta_transfer * (((zeta / xi) * nu_m_transfer) + nu_min) / nu_min
     );
 
+    // delta_w_work
+    double delta_w_work = std::max(0.0,
+        (c_w_charged - (delta_m_charge + 2 * delta_m_commute + delta_m_rest) * nu_min) / nu_w_work
+    );
+
+    // delta_w_rest
+    double delta_w_rest = std::max(0.0,
+        (c_w_charged - delta_w_work * (nu_w_work + nu_min)) / nu_min
+    );
+
     // delta_m_wait
     double delta_m_wait = delta_m_charge + delta_m_rest;
 
     std::unordered_map<std::string, double> result;
     result["c_w_charged"] = c_w_charged;
     result["delta_m_wait"] = delta_m_wait;
+    result["delta_w_rest"] = delta_w_rest;
     return result;
 }
 
