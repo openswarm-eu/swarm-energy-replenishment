@@ -2139,8 +2139,8 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 cfController->SetTimestepToWaitAtBase(unDurationToRest);
 
                 /* Reposition the robot */
-                cEPPos.Set(robotChargePos.GetX(), 
-                            robotChargePos.GetY(), 
+                cEPPos.Set(robotTaskPos.GetX(), 
+                            robotTaskPos.GetY(), 
                             0.0f);
                 cEPRot.FromAngleAxis(m_pcRNG->Uniform(CRadians::UNSIGNED_RANGE),
                                     CVector3::Z);
