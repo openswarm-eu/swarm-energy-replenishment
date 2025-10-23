@@ -58,9 +58,9 @@ bool PointIsInside(Real x1, Real y1, Real x2, Real y2, Real x, Real y)
 /****************************************/
 /****************************************/
 
-std::unordered_map<std::string, double> calculate_c_w_charged(double c_max, double delta_m_commute, double nu_w_work, double nu_m_move,
-                                                                double nu_min, double nu_m_charge, double nu_m_transfer,
-                                                                double xi, double tau, double zeta) 
+std::unordered_map<std::string, double> calculate_model_variables(double c_max, double delta_m_commute, double nu_w_work, double nu_m_move,
+                                                                  double nu_min, double nu_m_charge, double nu_m_transfer,
+                                                                  double xi, double tau, double zeta) 
 {
     double c_m_max = tau * c_max;
 
@@ -1996,17 +1996,17 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
             zeta = m_unTotalWorkers;
         }
 
-        // // print all variables
-        // LOG << "c_max: " << c_max << std::endl;
-        // LOG << "delta_m_commute: " << delta_m_commute << std::endl;
-        // LOG << "nu_w_work: " << nu_w_work << std::endl;
-        // LOG << "nu_m_move: " << nu_m_move << std::endl;
-        // LOG << "nu_min: " << nu_min << std::endl;
-        // LOG << "nu_m_charge: " << nu_m_charge << std::endl;
-        // LOG << "nu_m_transfer: " << nu_m_transfer << std::endl;
-        // LOG << "xi: " << xi << std::endl;
-        // LOG << "tau: " << tau << std::endl;
-        // LOG << "zeta: " << zeta << std::endl;
+        // print all variables
+        LOG << "c_max: " << c_max << std::endl;
+        LOG << "delta_m_commute: " << delta_m_commute << std::endl;
+        LOG << "nu_w_work: " << nu_w_work << std::endl;
+        LOG << "nu_m_move: " << nu_m_move << std::endl;
+        LOG << "nu_min: " << nu_min << std::endl;
+        LOG << "nu_m_charge: " << nu_m_charge << std::endl;
+        LOG << "nu_m_transfer: " << nu_m_transfer << std::endl;
+        LOG << "xi: " << xi << std::endl;
+        LOG << "tau: " << tau << std::endl;
+        LOG << "zeta: " << zeta << std::endl;
 
         if(str_controller_type == "worker" || str_controller_type == "worker_mc") {
             
@@ -2060,16 +2060,16 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 cfController->SetWorkingRegion(robotTaskPos);
 
                 /* Set low energy threshold */
-                Real lowThreshold = 0.1; // hard-coded low energy of 0.1 unit
-                Real lowThresholdNormalized = lowThreshold / m_fFullChargeWorker; 
+                auto result = calculate_model_variables(c_max, delta_m_commute, nu_w_work, nu_m_move,
+                                                        nu_min, nu_m_charge, nu_m_transfer,
+                                                        xi, tau, zeta);
+                Real lowThreshold = result["delta_w_rest"] * nu_min;
+                Real lowThresholdNormalized = (lowThreshold + 0.1) / m_fFullChargeWorker; // hard-coded low energy margin of 0.1 unit
                 LOG << "Low energy threshold for robot " << cEPId.str() << ": " << lowThreshold << " (norm: " << lowThresholdNormalized << ")" << std::endl;
                 cfController->SetLowEnergyThreshold(lowThresholdNormalized);
 
                 /* Set high energy threshold */
-                auto result = calculate_c_w_charged(c_max, delta_m_commute, nu_w_work, nu_m_move,
-                                                    nu_min, nu_m_charge, nu_m_transfer,
-                                                    xi, tau, zeta);
-                Real highThresholdNormalized = (result["c_w_charged"] - 1) / m_fFullChargeWorker; // -1 unit of energy for buffer
+                Real highThresholdNormalized = (result["c_w_charged"] - 1) / m_fFullChargeWorker; // hard-coded high energy margin of 1 unit
                 LOG << "High energy threshold for robot " << cEPId.str() << ": " << result["c_w_charged"] << " (norm: " << highThresholdNormalized << ")" << std::endl;
                 cfController->SetHighEnergyThreshold(highThresholdNormalized);
 
@@ -2141,9 +2141,9 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 cfController->SetWorkingRegion(robotTaskPos);
 
                 /* Set time to rest at the base station */
-                auto result = calculate_c_w_charged(c_max, delta_m_commute, nu_w_work, nu_m_move,
-                                                    nu_min, nu_m_charge, nu_m_transfer,
-                                                    xi, tau, zeta);
+                auto result = calculate_model_variables(c_max, delta_m_commute, nu_w_work, nu_m_move,
+                                                        nu_min, nu_m_charge, nu_m_transfer,
+                                                        xi, tau, zeta);
                 // convert from seconds to timesteps and round to nearest integer
                 UInt32 unDurationToRest = static_cast<UInt32>(std::lround(result["delta_m_wait"] * tickDuration));
                 LOG << "Duration to stay at base for charger: " << result["delta_m_wait"] << " seconds = " << unDurationToRest << " steps." << std::endl;

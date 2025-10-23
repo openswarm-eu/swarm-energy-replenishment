@@ -2,9 +2,9 @@
 #include <iomanip>
 #include <iostream>
 
-std::unordered_map<std::string, double> calculate_c_w_charged(double c_max, double delta_m_commute, double nu_w_work, double nu_m_move,
-                                                                double nu_min, double nu_m_charge, double nu_m_transfer,
-                                                                double xi, double tau, double zeta) 
+std::unordered_map<std::string, double> calculate_model_variables(double c_max, double delta_m_commute, double nu_w_work, double nu_m_move,
+                                                                  double nu_min, double nu_m_charge, double nu_m_transfer,
+                                                                  double xi, double tau, double zeta) 
 {
     double c_m_max = tau * c_max;
 

@@ -46,10 +46,10 @@ fi
 NU_MIN=0.0005 # per timestep (assuming 1 timestep = 1 second)
 WORK_PER_STEP=0.1
 
-TAU_CHARGER_CAPACITY=6 # times larger than worker capacity
-ZETA_NUM_WORKERS=8 # number of workers per mobile charger
-ETA_WORK_ENERGY_RATE=0.5 # If greater than 1, it means more energy is needed to work than to move
-DELTA_COMMUTE=15 # duration of one way commute in seconds
+TAU_CHARGER_CAPACITY=5 # times larger than worker capacity
+ZETA_NUM_WORKERS=5 # number of workers per mobile charger
+ETA_WORK_ENERGY_RATE=1 # If greater than 1, it means more energy is needed to work than to move
+DELTA_COMMUTE=40 # duration of one way commute in seconds
 
 CAPACITY_CHARGER_MAX=$((TAU_CHARGER_CAPACITY * CAPACITY_MAX))
 
@@ -156,6 +156,9 @@ do
         # Set number of workers
         sed -i "s|<e-puck controller=\"worker_mc\" num_robots=\"[0-9]*\"/>|<e-puck controller=\"worker_mc\" num_robots=\"$ZETA_NUM_WORKERS\"/>|" "$EXPERIMENT_FILE"
     fi
+
+    # Set commute duration />
+    sed -i "s|<commute_region travel_duration=\"[0-9.]*\"|<commute_region travel_duration=\"$DELTA_COMMUTE\"|" "$EXPERIMENT_FILE"
 
     # Set arena size based on commute distance + 1m
     NEW_SIZE_Y=$(echo "$COMMUTE_DISTANCE + 1 + ($REGION_X * 2)" | bc -l)
