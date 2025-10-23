@@ -1507,7 +1507,7 @@ void CExperimentLoopFunctionsNop::InitLoggingEnergy() {
     // m_cOutput << "TASK_DEMAND," << (int)m_unTaskDemand << "\n";
 
     m_cOutput << "TAU," << (int)(m_fFullChargeCharger/m_fFullChargeWorker) << "\n";
-    m_cOutput << "ETA," << m_fDeltaWork * CSimulator::GetInstance().GetPhysicsEngine(PHYSICS_ENGINE_NAME).GetSimulationClockTick() << "\n";
+    m_cOutput << "ETA," << m_fDeltaWork / CSimulator::GetInstance().GetPhysicsEngine(PHYSICS_ENGINE_NAME).GetSimulationClockTick() << "\n";
     m_cOutput << "DELTA_COMMUTE," << m_fCommuteDuration << "\n";
 
     m_cOutput.close();
@@ -2076,7 +2076,7 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 cfController->SetWorkingRegion(robotTaskPos);
 
                 /* Set low energy threshold */
-                Real lowThreshold = 1; // hard-coded low energy of 1 unit
+                Real lowThreshold = 0.1; // hard-coded low energy of 0.1 unit
                 Real lowThresholdNormalized = lowThreshold / m_fFullChargeWorker; 
                 LOG << "Low energy threshold for robot " << cEPId.str() << ": " << lowThreshold << " (norm: " << lowThresholdNormalized << ")" << std::endl;
                 cfController->SetLowEnergyThreshold(lowThresholdNormalized);
