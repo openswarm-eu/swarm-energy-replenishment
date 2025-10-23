@@ -27,7 +27,7 @@ PROTOBUF_CONSTEXPR TimeStep::TimeStep(
   , /*decltype(_impl_.robots_)*/{}
   , /*decltype(_impl_.tasks_)*/{}
   , /*decltype(_impl_.time_)*/uint64_t{0u}
-  , /*decltype(_impl_.points_)*/uint64_t{0u}
+  , /*decltype(_impl_.points_)*/0
   , /*decltype(_impl_.totalenergy_)*/0
   , /*decltype(_impl_.workenergy_)*/0
   , /*decltype(_impl_.connectorenergy_)*/0
@@ -240,7 +240,7 @@ static const ::_pb::Message* const file_default_instances[] = {
 const char descriptor_table_protodef_time_5fstep_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
   "\n\017time_step.proto\"\244\003\n\010TimeStep\022\014\n\004time\030\001"
   " \001(\004\022\026\n\006robots\030\002 \003(\0132\006.Robot\022\024\n\005tasks\030\003 "
-  "\003(\0132\005.Task\022\023\n\006points\030\004 \001(\004H\000\210\001\001\022\030\n\013total"
+  "\003(\0132\005.Task\022\023\n\006points\030\004 \001(\001H\000\210\001\001\022\030\n\013total"
   "Energy\030\005 \001(\001H\001\210\001\001\022\027\n\nworkEnergy\030\006 \001(\001H\002\210"
   "\001\001\022\034\n\017connectorEnergy\030\007 \001(\001H\003\210\001\001\022\031\n\014ener"
   "gyShared\030\010 \001(\001H\004\210\001\001\022\034\n\017workersDepleted\030\t"
@@ -403,7 +403,7 @@ inline void TimeStep::SharedCtor(
     , decltype(_impl_.robots_){arena}
     , decltype(_impl_.tasks_){arena}
     , decltype(_impl_.time_){uint64_t{0u}}
-    , decltype(_impl_.points_){uint64_t{0u}}
+    , decltype(_impl_.points_){0}
     , decltype(_impl_.totalenergy_){0}
     , decltype(_impl_.workenergy_){0}
     , decltype(_impl_.connectorenergy_){0}
@@ -493,12 +493,12 @@ const char* TimeStep::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx)
         } else
           goto handle_unusual;
         continue;
-      // optional uint64 points = 4;
+      // optional double points = 4;
       case 4:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 32)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 33)) {
           _Internal::set_has_points(&has_bits);
-          _impl_.points_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
-          CHK_(ptr);
+          _impl_.points_ = ::PROTOBUF_NAMESPACE_ID::internal::UnalignedLoad<double>(ptr);
+          ptr += sizeof(double);
         } else
           goto handle_unusual;
         continue;
@@ -617,10 +617,10 @@ uint8_t* TimeStep::_InternalSerialize(
         InternalWriteMessage(3, repfield, repfield.GetCachedSize(), target, stream);
   }
 
-  // optional uint64 points = 4;
+  // optional double points = 4;
   if (_internal_has_points()) {
     target = stream->EnsureSpace(target);
-    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(4, this->_internal_points(), target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(4, this->_internal_points(), target);
   }
 
   // optional double totalEnergy = 5;
@@ -702,9 +702,9 @@ size_t TimeStep::ByteSizeLong() const {
 
   cached_has_bits = _impl_._has_bits_[0];
   if (cached_has_bits & 0x000000ffu) {
-    // optional uint64 points = 4;
+    // optional double points = 4;
     if (cached_has_bits & 0x00000001u) {
-      total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(this->_internal_points());
+      total_size += 1 + 8;
     }
 
     // optional double totalEnergy = 5;
