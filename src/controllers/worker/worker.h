@@ -229,9 +229,14 @@ public:
     virtual Real GetDistToShareEnergy() const;
 
     /* 
-    * Set energy discharge rates
+    * Set energy discharge rates for moving
     */
     virtual void SetMoveDischargeRate(Real fDeltaPos, Real fMaxCapacity);
+
+    /*
+    * Set energy discharge rates for working
+    */
+    virtual void SetWorkDischargeRate(Real fDeltaWork, Real fMaxCapacity);
 
 protected:
 
@@ -377,6 +382,7 @@ protected:
 
     /* Energy discharge rates */
     Real m_fDeltaPos;
+    Real m_fDeltaWork;
     Real m_fDistToMC; // Distance to the mobile charger (used in the follower state) in cm
     Real m_fDistToCharger;
     Real m_fDesiredAngleOffset;

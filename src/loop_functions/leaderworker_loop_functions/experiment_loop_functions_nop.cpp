@@ -850,6 +850,9 @@ void CExperimentLoopFunctionsNop::PostStep() {
                         else
                             cProviderBattery.SetAvailableCharge(newChargeProvider);
                     // }
+
+                    LOG << "Post Transfer - Provider: " << cProvider.GetId() << " Charge: " << cProviderBattery.GetAvailableCharge()
+                        << " | Receiver: " << cEPuck.GetId() << " Charge: " << cBattery.GetAvailableCharge() << std::endl;
                 }
             }
             
@@ -2053,7 +2056,8 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 m_mapEnergyConsumedToWork[cEPId.str()] = 0.0f;
 
                 CWorker* cfController = dynamic_cast<CWorker*>(&pcEP->GetControllableEntity().GetController());
-                cfController->SetMoveDischargeRate(m_fDeltaPosWorker, m_fFullChargeWorker);     
+                cfController->SetMoveDischargeRate(m_fDeltaPosWorker, m_fFullChargeWorker);
+                cfController->SetWorkDischargeRate(m_fDeltaWork, m_fFullChargeWorker);
                 cfController->SetChargingRegion(m_cFixedChargePos + CVector2(0, y_shift[i]));
 
                 CVector2 robotTaskPos = m_cTaskPos + CVector2(0, y_shift[i]);
@@ -2074,7 +2078,7 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 cfController->SetHighEnergyThreshold(highThresholdNormalized);
 
                 /* Set initial charge */
-                cBattery.SetAvailableCharge(result["c_w_charged"] + 0.05f); // start slightly above high threshold
+                cBattery.SetAvailableCharge(result["c_w_charged"]);
 
                 /* Reposition the robot */
                 cEPPos.Set(robotTaskPos.GetX(), 

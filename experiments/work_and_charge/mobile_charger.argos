@@ -69,9 +69,9 @@
         <positioning implementation="default" />   
       </sensors>
       <params>
-        <wheel_turning hard_turn_angle_threshold="90"
-                       soft_turn_angle_threshold="5"
-                       no_turn_angle_threshold="1"
+        <wheel_turning hard_turn_angle_threshold="45"
+                       soft_turn_angle_threshold="44"
+                       no_turn_angle_threshold="5"
                        max_speed="12.0" />
         <team_flocking target_distance="10"
                        gain="1000"

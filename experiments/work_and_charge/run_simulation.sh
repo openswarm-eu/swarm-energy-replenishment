@@ -43,18 +43,20 @@ else
 fi
 
 # Common
-NU_MIN=0.0005 # per timestep (assuming 1 timestep = 1 second)
+NU_MIN=0.005 # Idle energy consumption
 WORK_PER_STEP=0.1
 
 TAU_CHARGER_CAPACITY=5 # times larger than worker capacity
-ZETA_NUM_WORKERS=5 # number of workers per mobile charger
-ETA_WORK_ENERGY_RATE=1 # If greater than 1, it means more energy is needed to work than to move
-DELTA_COMMUTE=40 # duration of one way commute in seconds
+ZETA_NUM_WORKERS=9 # number of workers per mobile charger
+ETA_WORK_ENERGY_RATE=3 # If greater than 1, it means more energy is needed to work than to move
+DELTA_COMMUTE=30 # duration of one way commute in seconds
 
 CAPACITY_CHARGER_MAX=$((TAU_CHARGER_CAPACITY * CAPACITY_MAX))
 
 ####################################################
 
+# compute NU_MIN_PER_STEP with floating-point division
+NU_MIN_PER_STEP=$(echo "scale=8; $NU_MIN / 10" | bc -l)
 MAX_SPEED=12.0 # cm/s
 # calculate commute distance in meters
 COMMUTE_DISTANCE=$(echo "scale=3; ($DELTA_COMMUTE * $MAX_SPEED) / 100" | bc -l)
@@ -95,7 +97,9 @@ do
     ((count++))
 
     # Make trial directory
-    TRIAL_DIR="mobile_tau${TAU_CHARGER_CAPACITY}_zeta${ZETA_NUM_WORKERS}_eta${ETA_WORK_ENERGY_RATE}_dcomm${DELTA_COMMUTE}_$(printf '%03d' $k)"
+    # format ETA_WORK_ENERGY_RATE to 1 decimal place for filenames/labels
+    ETA_WORK_ENERGY_RATE_FMT=$(printf "%.1f" "$ETA_WORK_ENERGY_RATE")
+    TRIAL_DIR="mobile_${ENERGY_TYPE}_tau${TAU_CHARGER_CAPACITY}_zeta${ZETA_NUM_WORKERS}_eta${ETA_WORK_ENERGY_RATE_FMT}_dcomm${DELTA_COMMUTE}_$(printf '%03d' $k)"
     TRIAL_DIR_PATH="$RESULT_DIR/$TRIAL_DIR"
     mkdir -p $TRIAL_DIR_PATH
 
@@ -122,7 +126,7 @@ do
     sed -i "s/start_charge_worker=\"[0-9]*,[0-9]*\"/start_charge_worker=\"$CAPACITY_MAX,$CAPACITY_MAX\"/" $EXPERIMENT_FILE
 
     # Set idle energy
-    sed -i "s/delta_time=\"[0-9.]*\"/delta_time=\"$NU_MIN\"/" "$EXPERIMENT_FILE"
+    sed -i "s/delta_time=\"[0-9.]*\"/delta_time=\"$NU_MIN_PER_STEP\"/" "$EXPERIMENT_FILE"
 
     # Set work energy
     rate=$(echo "$WORK_PER_STEP*$ETA_WORK_ENERGY_RATE" | bc -l)
@@ -190,7 +194,7 @@ do
     sed -i "/<box id=\"wall_east\"/,/<\/box>/s|position=\"[^\"]*\"|position=\"$WALL_EAST_X,0,0\"|" "$EXPERIMENT_FILE"
 
     # Run experiment
-    echo "Running experiment $count, t_loss = $XI_TRANSFER_LOSS, charge_rate = $NU_CHARGE, work_rate = $ETA_WORK_ENERGY_RATE, num_workers = $ZETA_NUM_WORKERS, charger_capacity = $CAPACITY_CHARGER_MAX, run = $k, (s = $SEED) ..."
+    echo "Running experiment $count, t_loss = $XI_TRANSFER_LOSS, charge_rate = $NU_CHARGE, work_rate = $ETA_WORK_ENERGY_RATE_FMT, num_workers = $ZETA_NUM_WORKERS, charger_capacity = $CAPACITY_CHARGER_MAX, run = $k, (s = $SEED) ..."
     # LOG_FILE="$RESULT_DIR/log.txt"
     # LOG_ERR_FILE="$RESULT_DIR/log_err.txt"
 

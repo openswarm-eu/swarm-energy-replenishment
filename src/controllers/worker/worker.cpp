@@ -295,6 +295,14 @@ void CWorker::SetMoveDischargeRate(Real fDeltaPos, Real fMaxCapacity) {
 /****************************************/
 /****************************************/
 
+void CWorker::SetWorkDischargeRate(Real fDeltaWork, Real fMaxCapacity) {
+    /* Energy to work per timestep (0.1s) */
+    m_fDeltaWork = fDeltaWork / fMaxCapacity;
+}
+
+/****************************************/
+/****************************************/
+
 void CWorker::ControlStep() {
 
     std::string id = this->GetId();
@@ -896,6 +904,7 @@ void CWorkerMC::Init(TConfigurationNode& t_node) {
     fDistSE = 100000; // TEMP very large value
 
     m_fDeltaPos = 0.03; // TEMP value. Set using SetMoveDischargeRate()
+    m_fDeltaWork = 1;   // TEMP value. Set using SetWorkDischargeRate()
 
     /*
     * Init SCT Controller
@@ -1329,8 +1338,9 @@ unsigned char CWorkerMC::Check_NotAtCharger(void* data) {
 unsigned char CWorkerMC::Check_LowEnergy(void* data) {
     /* Return true when the current energy is below the lower threshold */    
     // bool lowEnergy = fEnergy < ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 10) / 100;
-    bool lowEnergy = fEnergy < fEnergyLowThres;
+    bool lowEnergy = fEnergy < fEnergyLowThres + m_fDeltaWork;
     // RLOG << "Event: lowEnergy " << lowEnergy << std::endl;
+    // RLOG << "fEnergy: " << fEnergy << ", thres: " << fEnergyLowThres << ", delta: " << m_fDeltaWork << std::endl;
     // if(GetId() == "F1") {
     //     RLOG << "m_fDeltaPos: " << m_fDeltaPos << std::endl;
     //     RLOG << "fEnergy: " << fEnergy << std::endl;

@@ -508,8 +508,7 @@ void CCharger::Update() {
     /* Stay at the base for a predefined duration */
     // When it is inside the base, decrement the timer
     // When it is not inside the base, reset the timer to non-zero
-
-    if(Check_AtCharger(nullptr)) {
+    if(bCharging && prevEnergy <= fEnergy) {
         if(m_unRemainingTimestepToWaitAtBase > 0) {
             m_unRemainingTimestepToWaitAtBase--;
             RLOG << "Waiting at base, remaining timesteps: " << m_unRemainingTimestepToWaitAtBase << std::endl;
@@ -517,6 +516,8 @@ void CCharger::Update() {
     } else {
         m_unRemainingTimestepToWaitAtBase = m_unTimestepToWaitAtBase;
     }
+
+    prevEnergy = fEnergy;
 
 }
 
@@ -919,7 +920,8 @@ unsigned char CCharger::Check_LowEnergy(void* data) {
     // RLOG << "m_fDeltaPos: " << m_fDeltaPos << std::endl;
     // RLOG << "energyToReturn: " << ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 10) * (m_fWorkerMaxCapacity / m_fChargerMaxCapacity) / 100 << std::endl;
     // RLOG << "fEnergy: " << fEnergy << std::endl;
-    bool lowEnergy = fEnergy < ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 10) * (m_fWorkerMaxCapacity / m_fChargerMaxCapacity) / 100;
+    // bool lowEnergy = fEnergy < ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 10) * (m_fWorkerMaxCapacity / m_fChargerMaxCapacity) / 100;
+    bool lowEnergy = fEnergy <= m_fEnergyToCharger;
     // RLOG << "Event: lowEnergy " << lowEnergy << std::endl;
     // if(GetId() == "C1") {
     //     RLOG << "m_fDeltaPos: " << m_fDeltaPos << std::endl;
@@ -943,7 +945,7 @@ unsigned char CCharger::Check_timeToWork(void* data) {
     // bool highEnergy = fEnergy >= fEnergyHighThres;
     // RLOG << "Event: timeToWork " << highEnergy << std::endl;
     // return highEnergy;
-    if(m_unRemainingTimestepToWaitAtBase == 0 && Check_AtCharger(nullptr)) {
+    if(m_unRemainingTimestepToWaitAtBase == 0 && bCharging) {
         RLOG << "Event: timeToWork " << 1 << std::endl;
         return true;
     }

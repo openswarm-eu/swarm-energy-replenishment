@@ -351,6 +351,7 @@ private:
     Real fEnergyHighThres;
     bool bMoving;
     bool bCharging;
+    Real prevEnergy;
     // static constexpr UInt8 chargeAreaID = 1; // Team ID of the charging area (hard-coded to travel to team 1)
     
     CVector2 cChargingPosition;
