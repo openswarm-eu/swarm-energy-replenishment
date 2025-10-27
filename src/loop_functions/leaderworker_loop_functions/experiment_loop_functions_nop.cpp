@@ -824,7 +824,7 @@ void CExperimentLoopFunctionsNop::PostStep() {
                             // LOG << "Available charge: " << cProviderBattery.GetAvailableCharge() << std::endl;
                         }
 
-                        Real totalEnergy = energyDelta / fTransferEfficiency;
+                        Real totalEnergy = energyDelta / (1 - fTransferEfficiency);
 
                         /* Increase receiver energy */
                         newChargeReceiver = cBattery.GetAvailableCharge() + energyDelta;

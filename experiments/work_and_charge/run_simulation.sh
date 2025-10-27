@@ -36,7 +36,7 @@ elif [ "$ENERGY_TYPE" = "battery" ]; then
     # Battery
     CAPACITY_MAX=2000
     XI_TRANSFER_LOSS=0.05 # 1 - 0.95
-    NU_CHARGE=$(echo "scale=6; 5/9" | bc)
+    NU_CHARGE=$(echo "scale=6; 50/9" | bc)
 else
     echo "Invalid energy type: '$1'"
     exit 1
@@ -97,8 +97,8 @@ do
     ((count++))
 
     # Make trial directory
-    # format ETA_WORK_ENERGY_RATE to 1 decimal place for filenames/labels
-    ETA_WORK_ENERGY_RATE_FMT=$(printf "%.1f" "$ETA_WORK_ENERGY_RATE")
+    # format ETA_WORK_ENERGY_RATE to 2 decimal places for filenames/labels
+    ETA_WORK_ENERGY_RATE_FMT=$(printf "%.2f" "$ETA_WORK_ENERGY_RATE")
     TRIAL_DIR="mobile_${ENERGY_TYPE}_tau${TAU_CHARGER_CAPACITY}_zeta${ZETA_NUM_WORKERS}_eta${ETA_WORK_ENERGY_RATE_FMT}_dcomm${DELTA_COMMUTE}_$(printf '%03d' $k)"
     TRIAL_DIR_PATH="$RESULT_DIR/$TRIAL_DIR"
     mkdir -p $TRIAL_DIR_PATH
