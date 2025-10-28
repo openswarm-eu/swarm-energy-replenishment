@@ -211,7 +211,7 @@ void CExperimentLoopFunctionsNop::Init(TConfigurationNode& t_node) {
         TConfigurationNode& tExtraBatteryInfo = GetNode(config, "extra_battery_info");
         GetNodeAttributeOrDefault(tExtraBatteryInfo, "delta_work", m_fDeltaWork, 0.055);
         GetNodeAttributeOrDefault(tExtraBatteryInfo, "delta_recharge", m_fDeltaRecharge, 100.0);
-        GetNodeAttributeOrDefault(tExtraBatteryInfo, "delta_transfer_loss", m_fDeltaTransferLoss, 0.0);
+        GetNodeAttributeOrDefault(tExtraBatteryInfo, "delta_transfer_efficiency", m_fDeltaTransferEfficiency, 0.0);
         GetNodeAttributeOrDefault(tExtraBatteryInfo, "work_per_step", m_fWorkPerStep, 0.1);
 
         TConfigurationNode& tCommute = GetNode(config, "commute_region");
@@ -792,7 +792,7 @@ void CExperimentLoopFunctionsNop::PostStep() {
             /* Transfering energy */
             if(cController.IsCharging()) {
                 Real fTransferRatePerStep = m_fDeltaRecharge;
-                Real fTransferEfficiency = m_fDeltaTransferLoss;
+                Real fTransferEfficiency = m_fDeltaTransferEfficiency;
 
                 if(mapChargerProviders.count(cEPuck.GetId())) {
                     CEPuckChargerEntity& cProvider = mapChargerProviders[cEPuck.GetId()];
@@ -824,7 +824,7 @@ void CExperimentLoopFunctionsNop::PostStep() {
                             // LOG << "Available charge: " << cProviderBattery.GetAvailableCharge() << std::endl;
                         }
 
-                        Real totalEnergy = energyDelta / (1 - fTransferEfficiency);
+                        Real totalEnergy = energyDelta / fTransferEfficiency;
 
                         /* Increase receiver energy */
                         newChargeReceiver = cBattery.GetAvailableCharge() + energyDelta;
@@ -1992,7 +1992,7 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
         double nu_min = m_fDeltaTime * tickDuration;
         double nu_m_charge = m_fDeltaRecharge * tickDuration;
         double nu_m_transfer = m_fDeltaRecharge * tickDuration;
-        double xi = m_fDeltaTransferLoss;
+        double xi = m_fDeltaTransferEfficiency;
         double tau = m_fFullChargeCharger / m_fFullChargeWorker;
         double zeta = un_robots;
         if(str_controller_type == "charger") {

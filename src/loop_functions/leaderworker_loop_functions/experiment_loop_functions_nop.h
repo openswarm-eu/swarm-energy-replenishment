@@ -95,7 +95,7 @@ private:
    Real m_fDeltaPosCharger;
    Real m_fDeltaWork;
    Real m_fDeltaRecharge;
-   Real m_fDeltaTransferLoss;
+   Real m_fDeltaTransferEfficiency;
    Real m_fWorkPerStep;
 
    /* Commute */

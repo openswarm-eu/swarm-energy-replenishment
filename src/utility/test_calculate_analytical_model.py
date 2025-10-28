@@ -22,9 +22,9 @@ def calculate_strat2_all_variables(c_max, delta_m_commute, nu_w_work, nu_m_move,
     delta_m_rest_case_1 = np.maximum(0, (c_m_charged - 2 * (nu_m_move + nu_min) * delta_m_commute)/nu_min - (c_m_charged/(nu_m_charge - nu_min) * nu_m_charge - 2 * delta_m_commute * nu_m_move) / (nu_min + nu_min**2/(nu_w_work + nu_min) * (nu_m_transfer - nu_min)/(zeta/xi * nu_m_transfer + nu_min)))
     #print(f"delta_m_rest_case_1: {delta_m_rest_case_1}")
     delta_transfer = np.maximum(0, np.minimum(c_max /(nu_m_transfer - nu_min), (c_m_charged - 2 * (nu_m_move + nu_min) * delta_m_commute)/(zeta/xi * nu_m_transfer + nu_min) - nu_min/(zeta/xi * nu_m_transfer + nu_min) * delta_m_rest_case_1)) # Either the time the charger needs to give the worker its remaining capacity, or the time it needs to charge all workers to the maximum capacity (considering that there is a energy loss) 
-    #print(f"delta_transfer: {delta_transfer}")
+    print(f"delta_transfer: {delta_transfer}")
     c_w_charged = (nu_m_transfer - nu_min) * delta_transfer # the max boundary for c_w_charged is already encoded in delta_transfer, so we can just multiply it with the rate at which the charger can transfer energy to the worker
-    #print(f"c_w_charged: {c_w_charged}")
+    print(f"c_w_charged: {c_w_charged}")
     #print(f" diffeernt delta_m_rest: {c_w_charged/(nu_w_work + nu_min) - delta_m_charge - 2*delta_m_commute}")
     #print(f" diffeernt delta_m_rest 2: {c_w_charged/(nu_w_work + nu_min) - delta_m_charge_different - 2*delta_m_commute}")
     n_w = zeta * n_m 
@@ -52,6 +52,7 @@ def calculate_strat2_all_variables(c_max, delta_m_commute, nu_w_work, nu_m_move,
     duty_cycle = delta_w_work/cycle_duration # divide by the cycle of a charger in the case that the workers cycle is not adding up due to a drained battery
     #duty_cycle_2 = delta_w_work/(delta_transfer + delta_w_work + delta_w_rest) # problematic if all 0 because charger cannot come? (if c_w_charged=0)
     #duty_cycle = simplify(duty_cycle)
+    print(f"duty_cycle: {duty_cycle}")
 
     work_2 = n_w * duty_cycle
 
@@ -65,14 +66,14 @@ def calculate_strat2_all_variables(c_max, delta_m_commute, nu_w_work, nu_m_move,
 # ----------------------------
 if __name__ == "__main__":
     # Example input values
-    c_max = 100
+    c_max = 2000
     delta_m_commute = 40
     nu_w_work = 1
     nu_m_move = 1
     nu_min = 0.005
-    nu_m_charge = 100
-    nu_m_transfer = 100
-    xi = 0.5
+    nu_m_charge = 50/9
+    nu_m_transfer = 50/9
+    xi = 0.99
     tau = 5
     zeta = 5
     n_m = 1

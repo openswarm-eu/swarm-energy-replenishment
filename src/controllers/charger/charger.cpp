@@ -116,8 +116,8 @@ void CCharger::Init(TConfigurationNode& t_node) {
         GetNodeAttribute(GetNode(t_node, "SCT"), "path", m_strSCTPath);
 
         /* Energy */
-        GetNodeAttribute(GetNode(t_node, "energy"), "low_thres", fEnergyLowThres);
-        GetNodeAttribute(GetNode(t_node, "energy"), "high_thres", fEnergyHighThres);
+        // GetNodeAttribute(GetNode(t_node, "energy"), "low_thres", fEnergyLowThres);
+        // GetNodeAttribute(GetNode(t_node, "energy"), "high_thres", fEnergyHighThres);
         GetNodeAttribute(GetNode(t_node, "energy"), "share_dist", fTargetDistSE);
 
     }

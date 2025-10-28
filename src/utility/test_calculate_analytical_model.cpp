@@ -71,21 +71,21 @@ std::unordered_map<std::string, double> calculate_model_variables(double c_max, 
 
 int main() {
     // Sample input values
-    double c_max = 100;
+    double c_max = 2000;
     double delta_m_commute = 40;
     double nu_w_work = 1;
     double nu_m_move = 1;
     double nu_min = 0.005;
-    double nu_m_charge = 100;
-    double nu_m_transfer = 100;
-    double xi = 0.5;
+    double nu_m_charge = 50.0/9.0;
+    double nu_m_transfer = 50.0/9.0;
+    double xi = 0.99;
     double tau = 5;
     double zeta = 5;
 
     // Call the function
-    auto result = calculate_c_w_charged(c_max, delta_m_commute, nu_w_work, nu_m_move,
-                                        nu_min, nu_m_charge, nu_m_transfer,
-                                        xi, tau, zeta);
+    auto result = calculate_model_variables(c_max, delta_m_commute, nu_w_work, nu_m_move,
+                                            nu_min, nu_m_charge, nu_m_transfer,
+                                            xi, tau, zeta);
 
 
     std::cout << std::fixed << std::setprecision(14);

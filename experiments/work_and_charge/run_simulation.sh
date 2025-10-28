@@ -6,7 +6,7 @@ EXPERIMENT_NAME=work_and_charge
 
 # Simulation configuration
 STRATEGY_TYPE="mobile" # fixed or mobile
-ENERGY_TYPE="supercap" #  supercap or battery
+ENERGY_TYPE="battery" #  supercap or battery
 VISUALIZATION_ON="false" # true or false
 
 if [ "$STRATEGY_TYPE" = "fixed" ]; then
@@ -30,13 +30,13 @@ TEMPLATE_EXPERIMENT_FILE=$EXPERIMENT_DIR/${STRATEGY_NAME}.argos
 if [ "$ENERGY_TYPE" = "supercap" ]; then
     # Supercapacitor
     CAPACITY_MAX=100
-    XI_TRANSFER_LOSS=0.5 # 1 - 0.5
-    NU_CHARGE=10
+    XI_TRANSFER_EFFICIENCY=0.5
+    NU_CHARGE=100
 elif [ "$ENERGY_TYPE" = "battery" ]; then
     # Battery
     CAPACITY_MAX=2000
-    XI_TRANSFER_LOSS=0.05 # 1 - 0.95
-    NU_CHARGE=$(echo "scale=6; 50/9" | bc)
+    XI_TRANSFER_EFFICIENCY=0.99
+    NU_CHARGE=$(echo "scale=8; 50/9" | bc)
 else
     echo "Invalid energy type: '$1'"
     exit 1
@@ -47,15 +47,15 @@ NU_MIN=0.005 # Idle energy consumption
 WORK_PER_STEP=0.1
 
 TAU_CHARGER_CAPACITY=5 # times larger than worker capacity
-ZETA_NUM_WORKERS=9 # number of workers per mobile charger
-ETA_WORK_ENERGY_RATE=3 # If greater than 1, it means more energy is needed to work than to move
-DELTA_COMMUTE=30 # duration of one way commute in seconds
+ZETA_NUM_WORKERS=5 # number of workers per mobile charger
+ETA_WORK_ENERGY_RATE=1 # If greater than 1, it means more energy is needed to work than to move
+DELTA_COMMUTE=40 # duration of one way commute in seconds
 
 CAPACITY_CHARGER_MAX=$((TAU_CHARGER_CAPACITY * CAPACITY_MAX))
 
 ####################################################
 
-# compute NU_MIN_PER_STEP with floating-point division
+NU_CHARGE_PER_STEP=$(echo "scale=8; $NU_CHARGE / 10" | bc -l)
 NU_MIN_PER_STEP=$(echo "scale=8; $NU_MIN / 10" | bc -l)
 MAX_SPEED=12.0 # cm/s
 # calculate commute distance in meters
@@ -134,7 +134,7 @@ do
     sed -i "s/<extra_battery_info delta_work=\"[0-9.]*\"/<extra_battery_info delta_work=\"$rate\"/" "$EXPERIMENT_FILE"
 
     # Set recharge per step
-    rate=$(printf "%.3f" $NU_CHARGE)
+    rate=$(printf "%.8f" $NU_CHARGE_PER_STEP)
     sed -i "s/delta_recharge=\"[0-9.]*\"/delta_recharge=\"$rate\"/" "$EXPERIMENT_FILE"
 
     # Set work performed per time step
@@ -146,10 +146,10 @@ do
         sed -i "s/full_charge_charger=\"[0-9]*\"/full_charge_charger=\"$CAPACITY_CHARGER_MAX\"/" $EXPERIMENT_FILE
         sed -i "s/start_charge_charger=\"[0-9]*,[0-9]*\"/start_charge_charger=\"$CAPACITY_CHARGER_MAX,$CAPACITY_CHARGER_MAX\"/" $EXPERIMENT_FILE
 
-        # Set transfer loss
-        rate=$(echo "$XI_TRANSFER_LOSS" | bc -l)
+        # Set transfer efficiency
+        rate=$(echo "$XI_TRANSFER_EFFICIENCY" | bc -l)
         rate=$(printf "%.3f" $rate)
-        sed -i "s/delta_transfer_loss=\"[0-9.]*\"/delta_transfer_loss=\"$rate\"/" "$EXPERIMENT_FILE"
+        sed -i "s/delta_transfer_efficiency=\"[0-9.]*\"/delta_transfer_efficiency=\"$rate\"/" "$EXPERIMENT_FILE"
 
         # Set charger full capacity
         sed -i "s/full_charge_charger=\"[0-9]*\"/full_charge_charger=\"$CAPACITY_CHARGER_MAX\"/" $EXPERIMENT_FILE
@@ -194,7 +194,7 @@ do
     sed -i "/<box id=\"wall_east\"/,/<\/box>/s|position=\"[^\"]*\"|position=\"$WALL_EAST_X,0,0\"|" "$EXPERIMENT_FILE"
 
     # Run experiment
-    echo "Running experiment $count, t_loss = $XI_TRANSFER_LOSS, charge_rate = $NU_CHARGE, work_rate = $ETA_WORK_ENERGY_RATE_FMT, num_workers = $ZETA_NUM_WORKERS, charger_capacity = $CAPACITY_CHARGER_MAX, run = $k, (s = $SEED) ..."
+    echo "Running experiment $count, t_efficiency = $XI_TRANSFER_EFFICIENCY, charge_rate = $NU_CHARGE, work_rate = $ETA_WORK_ENERGY_RATE_FMT, num_workers = $ZETA_NUM_WORKERS, charger_capacity = $CAPACITY_CHARGER_MAX, run = $k, (s = $SEED) ..."
     # LOG_FILE="$RESULT_DIR/log.txt"
     # LOG_ERR_FILE="$RESULT_DIR/log_err.txt"
 
