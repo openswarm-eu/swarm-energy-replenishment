@@ -46,10 +46,10 @@ fi
 NU_MIN=0.005 # Idle energy consumption
 WORK_PER_STEP=0.1
 
-TAU_CHARGER_CAPACITY=5 # times larger than worker capacity
-ZETA_NUM_WORKERS=5 # number of workers per mobile charger
-ETA_WORK_ENERGY_RATE=1 # If greater than 1, it means more energy is needed to work than to move
-DELTA_COMMUTE=40 # duration of one way commute in seconds
+TAU_CHARGER_CAPACITY=${TAU_CHARGER_CAPACITY:-5} # times larger than worker capacity
+ZETA_NUM_WORKERS=${ZETA_NUM_WORKERS:-5} # number of workers per mobile charger
+ETA_WORK_ENERGY_RATE=${ETA_WORK_ENERGY_RATE:-1} # If greater than 1, it means more energy is needed to work than to move
+DELTA_COMMUTE=${DELTA_COMMUTE:-40} # duration of one way commute in seconds
 
 CAPACITY_CHARGER_MAX=$((TAU_CHARGER_CAPACITY * CAPACITY_MAX))
 
