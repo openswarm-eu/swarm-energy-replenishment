@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Get first parameter
+ARGOS3_BIN="/usr/bin/argos3"
 
 EXPERIMENT_NAME=work_and_charge
 
@@ -204,9 +204,9 @@ do
 
     # Run simulation
     if [ "$VISUALIZATION_ON" = "true" ]; then
-        argos3 -c $EXPERIMENT_FILE -l $LOG_FILE -e $LOG_ERR_FILE
+        "$ARGOS3_BIN" -c $EXPERIMENT_FILE -l $LOG_FILE -e $LOG_ERR_FILE
     else
-        argos3 -c $EXPERIMENT_FILE -l $LOG_FILE -e $LOG_ERR_FILE -z
+        "$ARGOS3_BIN" -c $EXPERIMENT_FILE -l $LOG_FILE -e $LOG_ERR_FILE -z
     fi
 
     file="$TRIAL_DIR_PATH/summary.csv"
