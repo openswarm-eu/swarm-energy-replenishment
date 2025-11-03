@@ -481,7 +481,7 @@ void CCharger::Update() {
 
     /* Distance to charging area */
     m_fDistToCharger = pos2d.GetX() - cChargingPosition.GetX();
-    m_fEnergyToCharger = ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 1) * (m_fWorkerMaxCapacity / m_fChargerMaxCapacity) / m_fWorkerMaxCapacity; // +1 unit of energy for buffer
+    m_fEnergyToCharger = ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 10) * (m_fWorkerMaxCapacity / m_fChargerMaxCapacity) / m_fWorkerMaxCapacity; // +10 units of energy for buffer
 
     /* Check whether there are any workers who are requesting energy */
     if( !bSharingEnergy ) { 
