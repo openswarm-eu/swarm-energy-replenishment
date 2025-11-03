@@ -6,7 +6,7 @@ EXPERIMENT_NAME=work_and_charge
 
 # Simulation configuration
 STRATEGY_TYPE="mobile" # fixed or mobile
-ENERGY_TYPE="supercap" #  supercap or battery
+ENERGY_TYPE=${ENERGY_TYPE:-supercap} #  supercap or battery
 VISUALIZATION_ON="false" # true or false
 
 if [ "$STRATEGY_TYPE" = "fixed" ]; then
@@ -38,7 +38,7 @@ elif [ "$ENERGY_TYPE" = "battery" ]; then
     XI_TRANSFER_EFFICIENCY=0.99
     NU_CHARGE=1.2 #$(echo "scale=8; 50/9" | bc)
 else
-    echo "Invalid energy type: '$1'"
+    echo "Invalid energy type: '$ENERGY_TYPE'"
     exit 1
 fi
 
