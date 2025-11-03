@@ -978,6 +978,11 @@ void CExperimentLoopFunctionsNop::PostStep() {
     */
 
     if(m_bLogging) {
+
+        /* Log every 10 timesteps */
+        if(GetSpace().GetSimulationClock() % 10 != 0)
+            return;
+
         /* Create new node for this timestep */
         TimeStep tData;
         tData.set_time(GetSpace().GetSimulationClock());

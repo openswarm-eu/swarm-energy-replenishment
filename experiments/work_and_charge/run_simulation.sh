@@ -6,7 +6,7 @@ EXPERIMENT_NAME=work_and_charge
 
 # Simulation configuration
 STRATEGY_TYPE="mobile" # fixed or mobile
-ENERGY_TYPE="battery" #  supercap or battery
+ENERGY_TYPE="supercap" #  supercap or battery
 VISUALIZATION_ON="false" # true or false
 
 if [ "$STRATEGY_TYPE" = "fixed" ]; then
@@ -29,14 +29,14 @@ TEMPLATE_EXPERIMENT_FILE=$EXPERIMENT_DIR/${STRATEGY_NAME}.argos
 
 if [ "$ENERGY_TYPE" = "supercap" ]; then
     # Supercapacitor
-    CAPACITY_MAX=100
+    CAPACITY_MAX=3060
     XI_TRANSFER_EFFICIENCY=0.5
-    NU_CHARGE=100
+    NU_CHARGE=191.25
 elif [ "$ENERGY_TYPE" = "battery" ]; then
     # Battery
-    CAPACITY_MAX=2000
+    CAPACITY_MAX=10800
     XI_TRANSFER_EFFICIENCY=0.99
-    NU_CHARGE=$(echo "scale=8; 50/9" | bc)
+    NU_CHARGE=1.2 #$(echo "scale=8; 50/9" | bc)
 else
     echo "Invalid energy type: '$1'"
     exit 1
