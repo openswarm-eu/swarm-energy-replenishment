@@ -2078,7 +2078,7 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 cfController->SetLowEnergyThreshold(lowThresholdNormalized);
 
                 /* Set high energy threshold */
-                Real highThresholdNormalized = (result["c_w_charged"] - 1) / m_fFullChargeWorker; // hard-coded high energy margin of 1 unit
+                Real highThresholdNormalized = (result["c_w_charged"] - 10) / m_fFullChargeWorker; // hard-coded high energy margin of 10 unit
                 LOG << "High energy threshold for robot " << cEPId.str() << ": " << result["c_w_charged"] << " (norm: " << highThresholdNormalized << ")" << std::endl;
                 cfController->SetHighEnergyThreshold(highThresholdNormalized);
 
