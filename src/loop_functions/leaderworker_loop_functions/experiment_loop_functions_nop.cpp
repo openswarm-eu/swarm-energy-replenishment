@@ -227,7 +227,7 @@ void CExperimentLoopFunctionsNop::Init(TConfigurationNode& t_node) {
         CVector3 cArenaSize = GetSpace().GetArenaSize();
         LOG << "Arena Size: X = " << cArenaSize.GetX() << " Y = " << cArenaSize.GetY() << std::endl;
 
-        m_cFixedChargePos = CVector2(-cArenaSize.GetX()/2 + 0.5 + 0.15, 0);
+        m_cFixedChargePos = CVector2(-cArenaSize.GetX()/2 + 1 + 0.15, 0);
         m_fFixedChargeAreaSideX = 0.3;
         m_fFixedChargeAreaSideY = 1.0;
         
@@ -235,7 +235,7 @@ void CExperimentLoopFunctionsNop::Init(TConfigurationNode& t_node) {
         // m_fMobileChargeAreaSideX = 0.3;
         // m_fMobileChargeAreaSideY = 1.0;
 
-        m_cTaskPos = CVector2(cArenaSize.GetX()/2 - 0.5 - 0.15, 0);
+        m_cTaskPos = CVector2(cArenaSize.GetX()/2 - 1 - 0.15, 0);
         m_fTaskAreaSideX = 0.3;
         m_fTaskAreaSideY = 1.0;
         LOG << "Fixed Task Position: " << m_cTaskPos << std::endl;
@@ -1150,13 +1150,13 @@ void CExperimentLoopFunctionsNop::PostStep() {
         m_cOutput.close();
     }
 
-    /* Grab frame */
-    if(m_bFrameGrabbing) {
-        CQTOpenGLRender& render = dynamic_cast<CQTOpenGLRender&>(GetSimulator().GetVisualization());
-        CQTOpenGLWidget& widget = render.GetMainWindow().GetOpenGLWidget();
-        widget.SetCamera(m_unCameraIndex);
-        widget.SetGrabFrame(m_bFrameGrabbing);
-    }
+    // /* Grab frame every 10 timesteps */
+    // if (GetSpace().GetSimulationClock() % 10 == 0 && m_bFrameGrabbing) {
+    //     CQTOpenGLRender& render = dynamic_cast<CQTOpenGLRender&>(GetSimulator().GetVisualization());
+    //     CQTOpenGLWidget& widget = render.GetMainWindow().GetOpenGLWidget();
+    //     widget.SetCamera(m_unCameraIndex);
+    //     widget.SetGrabFrame(m_bFrameGrabbing);
+    // }
 
     /* Terminate simulation time limit is reached */
     if(m_bTaskExists) {

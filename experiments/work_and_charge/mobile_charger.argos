@@ -194,14 +194,15 @@
                       quality="100"
                       headless_grabbing="false"
                       headless_frame_size="1600x1200"
-                      headless_frame_rate="1"/> -->
+                      headless_frame_rate="10"/> -->
 
       <user_functions library="build/loop_functions/leaderworker_loop_functions/libleaderworker_loop_functions"
                       label="manualcontrol_qtuser_functions_nop" />
 
       <camera>
         <placements>
-          <placement index="0" position="0.0155856,-0.00519367,3.8988" look_at="0.0155856,-0.00519367,2.8988" up="0,1,0" lens_focal_length="58" />
+          <!-- <placement index="0" position="0.0155856,-0.00519367,3.8988" look_at="0.0155856,-0.00519367,2.8988" up="0,1,0" lens_focal_length="58" /> -->
+          <placement index="0" position="0.0831031,-0.00519367,10.4895" look_at="0.0831031,-0.00519367,9.48954" up="0,1,0" lens_focal_length="58" />        
         </placements>
       </camera>
 

@@ -66,14 +66,14 @@ def calculate_strat2_all_variables(c_max, delta_m_commute, nu_w_work, nu_m_move,
 # ----------------------------
 if __name__ == "__main__":
     # Example input values
-    c_max = 2000
+    c_max = 3060
     delta_m_commute = 40
     nu_w_work = 1
     nu_m_move = 1
     nu_min = 0.005
-    nu_m_charge = 50/9
-    nu_m_transfer = 50/9
-    xi = 0.99
+    nu_m_charge = 191.25
+    nu_m_transfer = 191.25
+    xi = 0.5
     tau = 5
     zeta = 5
     n_m = 1
