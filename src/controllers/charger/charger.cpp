@@ -878,7 +878,7 @@ void CCharger::Callback_Charge(void* data) {
 /* Callback functions (Uncontrollable events) */
 
 unsigned char CCharger::Check_AtWork(void* data) {
-    if(m_pcGround->GetReadings()[0] == CColor(255,191,191).ToGrayScale() / 255.0f) {
+    if(m_pcGround->GetReadings()[0] == CColor(191,255,191).ToGrayScale() / 255.0f) {
         // RLOG << "Event: atWork " << 1 << std::endl;
         return true;
     }
@@ -887,7 +887,7 @@ unsigned char CCharger::Check_AtWork(void* data) {
 }
 
 unsigned char CCharger::Check_NotAtWork(void* data) {
-    if(m_pcGround->GetReadings()[0] == CColor(255,191,191).ToGrayScale() / 255.0f) {
+    if(m_pcGround->GetReadings()[0] == CColor(191,255,191).ToGrayScale() / 255.0f) {
         // RLOG << "Event: notAtWork " << 0 << std::endl;
         return false;
     }
@@ -896,7 +896,7 @@ unsigned char CCharger::Check_NotAtWork(void* data) {
 }
 
 unsigned char CCharger::Check_AtCharger(void* data) {
-    if(m_pcGround->GetReadings()[0] == CColor(191,255,191).ToGrayScale() / 255.0f) {
+    if(m_pcGround->GetReadings()[0] == CColor(191,191,255).ToGrayScale() / 255.0f) {
         // RLOG << "Event: atCharger " << 1 << std::endl;
         return true;
     }
@@ -905,7 +905,7 @@ unsigned char CCharger::Check_AtCharger(void* data) {
 }
 
 unsigned char CCharger::Check_NotAtCharger(void* data) {
-    if(m_pcGround->GetReadings()[0] == CColor(191,255,191).ToGrayScale() / 255.0f) {
+    if(m_pcGround->GetReadings()[0] == CColor(191,191,255).ToGrayScale() / 255.0f) {
         // RLOG << "Event: notAtCharger " << 0 << std::endl;
         return false;
     }

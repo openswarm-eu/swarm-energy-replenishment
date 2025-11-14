@@ -324,7 +324,7 @@ CColor CExperimentLoopFunctionsNop::GetFloorColor(const CVector2& c_position_on_
                     m_cFixedChargePos.GetY() + m_fFixedChargeAreaSideY/2,
                     c_position_on_plane.GetX(),
                     c_position_on_plane.GetY())) {
-        return CColor(191,255,191);
+        return CColor(191,191,255);
     }
 
     // /* Energy Sharing area */
@@ -358,7 +358,7 @@ CColor CExperimentLoopFunctionsNop::GetFloorColor(const CVector2& c_position_on_
                             cCTask.GetPosition().GetY() + cCTask.GetWidthY()/2,
                             c_position_on_plane.GetX(),         
                             c_position_on_plane.GetY())) {
-                return CColor(255,191,191);
+                return CColor(191,255,191);
             }
         } else {
             CRectangleTaskEntity& cCTask = *any_cast<CRectangleTaskEntity*>(it->second);
@@ -369,7 +369,7 @@ CColor CExperimentLoopFunctionsNop::GetFloorColor(const CVector2& c_position_on_
                             c_position_on_plane.GetX(),
                             c_position_on_plane.GetY())) {
                 if(cCTask.GetDemand() > 0) {
-                    return CColor(255,191,191);
+                    return CColor(191,255,191);
                 } else {
                     return CColor(255,250,250);
                 }

@@ -1307,7 +1307,7 @@ void CWorkerMC::Callback_Charge(void* data) {
 /* Callback functions (Uncontrollable events) */
 
 unsigned char CWorkerMC::Check_AtWork(void* data) {
-    if(m_pcGround->GetReadings()[0] == CColor(255,191,191).ToGrayScale() / 255.0f) {
+    if(m_pcGround->GetReadings()[0] == CColor(191,255,191).ToGrayScale() / 255.0f) {
         // RLOG << "Event: atWork " << 1 << std::endl;
         return true;
     }
@@ -1316,7 +1316,7 @@ unsigned char CWorkerMC::Check_AtWork(void* data) {
 }
 
 unsigned char CWorkerMC::Check_NotAtWork(void* data) {
-    if(m_pcGround->GetReadings()[0] == CColor(255,191,191).ToGrayScale() / 255.0f) {
+    if(m_pcGround->GetReadings()[0] == CColor(191,255,191).ToGrayScale() / 255.0f) {
         // RLOG << "Event: notAtWork " << 0 << std::endl;
         return false;
     }
