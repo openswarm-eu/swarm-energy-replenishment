@@ -164,8 +164,8 @@ do
     # Set commute duration />
     sed -i "s|<commute_region travel_duration=\"[0-9.]*\"|<commute_region travel_duration=\"$DELTA_COMMUTE\"|" "$EXPERIMENT_FILE"
 
-    # Set arena size based on commute distance + 1m
-    NEW_SIZE_Y=$(echo "$COMMUTE_DISTANCE + 1 + ($REGION_X * 2)" | bc -l)
+    # Set arena size based on commute distance + 2m
+    NEW_SIZE_Y=$(echo "$COMMUTE_DISTANCE + 2 + ($REGION_X * 2)" | bc -l)
     echo New arena size Y: $(printf "%.3f" $NEW_SIZE_Y) m
     sed -i "s|<arena size=\"[0-9.]\+,[0-9.]\+,[0-9.]\+\"|<arena size=\"$NEW_SIZE_Y,2,1\"|" "$EXPERIMENT_FILE"
 
@@ -180,8 +180,8 @@ do
 
     # Compute wall position
     WALL_LENGTH_Y=1.1
-    WALL_WEST_X=$(echo "-$NEW_SIZE_Y/2 + 0.5" | bc -l)
-    WALL_EAST_X=$(echo "$NEW_SIZE_Y/2 - 0.5" | bc -l)
+    WALL_WEST_X=$(echo "-$NEW_SIZE_Y/2 + 1" | bc -l)
+    WALL_EAST_X=$(echo "$NEW_SIZE_Y/2 - 1" | bc -l)
     echo Wall west X: $(printf "%.3f" $WALL_WEST_X) m
     echo Wall east X: $(printf "%.3f" $WALL_EAST_X) m
 
