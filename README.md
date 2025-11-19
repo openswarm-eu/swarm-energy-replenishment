@@ -2,9 +2,10 @@
 
 [**Installation**](#installation) | [**Usage**](#usage) | [**License**](#license)
 
-This repository contains the code for the paper presented at ANTS 2024:
+This repository contains the code for the following papers:
 
-- [A Comparative Study of Energy Replenishment Strategies for Robot Swarms](https://doi.org/10.1007/978-3-031-70932-6_1)
+- On the Duty Cycle and Energy Efficiency of Energy-Sharing Robot Swarms submitted to ANTS2026.
+- [A Comparative Study of Energy Replenishment Strategies for Robot Swarms](https://doi.org/10.1007/978-3-031-70932-6_1) presented at ANTS2024 (tag: [ANTS2024](https://github.com/genkimiyauchi/swarm-energy-replenishment/tree/ANTS2024)).
 
 ## Installation
 
