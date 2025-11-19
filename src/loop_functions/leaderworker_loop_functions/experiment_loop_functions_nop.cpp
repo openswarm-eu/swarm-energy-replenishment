@@ -1582,22 +1582,18 @@ void CExperimentLoopFunctionsNop::InitRobots() {
     UInt32 unNumWorkers;
     GetNodeAttributeOrDefault(cEPuckNode, "controller", m_strWorkerType, ToString("worker"));
     GetNodeAttributeOrDefault(cEPuckNode, "num_robots", unNumWorkers, (UInt32)10);
+    m_unTotalWorkers = unNumWorkers;
 
-    // if(m_strWorkerType == "worker") {
-        cMin = CVector2(m_cFixedChargePos.GetX() - m_fFixedChargeAreaSideX/2,
-                        m_cFixedChargePos.GetY() - m_fFixedChargeAreaSideY/2);
-        cMax = CVector2(m_cFixedChargePos.GetX() + m_fFixedChargeAreaSideX/2,
-                        m_cFixedChargePos.GetY() + m_fFixedChargeAreaSideY/2);
-    // } else if(m_strWorkerType == "worker_mc") {
-    //     LOG << "minX " << m_cTaskPos.GetX() << std::endl;
-    //     LOG << "sideX " << m_fTaskAreaSideX << std::endl;
-    //     cMin = CVector2(m_cTaskPos.GetX() - m_fTaskAreaSideX/2.0,
-    //                     m_cTaskPos.GetY() - m_fTaskAreaSideY/2.0);
-    //     cMax = CVector2(m_cTaskPos.GetX() + m_fTaskAreaSideX/2.0,
-    //                     m_cTaskPos.GetY() + m_fTaskAreaSideY/2.0);
-    // } else {
-    //     LOGERR << "Unknown worker type: " << m_strWorkerType << std::endl;
-    // }
+    /* Place e-puck_charger */
+    UInt32 unNumChargers;
+    GetNodeAttributeOrDefault(cEPuckChargerNode, "controller", m_strChargerType, ToString("charger"));
+    GetNodeAttributeOrDefault(cEPuckChargerNode, "num_robots", unNumChargers, (UInt32)0);
+    m_unTotalChargers = unNumChargers;
+
+    cMin = CVector2(m_cFixedChargePos.GetX() - m_fFixedChargeAreaSideX/2,
+                    m_cFixedChargePos.GetY() - m_fFixedChargeAreaSideY/2);
+    cMax = CVector2(m_cFixedChargePos.GetX() + m_fFixedChargeAreaSideX/2,
+                    m_cFixedChargePos.GetY() + m_fFixedChargeAreaSideY/2);
 
     LOG << "cMin " << cMin << std::endl;
     LOG << "cMax " << cMax << std::endl;
@@ -1605,17 +1601,11 @@ void CExperimentLoopFunctionsNop::InitRobots() {
     LOG << "unNumWorkers " << unNumWorkers << std::endl;
 
     PlaceRobots(cMin, cMax, unNumWorkers, m_strWorkerType);
-    m_unTotalWorkers = unNumWorkers;
 
-    /* Place e-puck_charger */
-    UInt32 unNumChargers;
-    GetNodeAttributeOrDefault(cEPuckChargerNode, "controller", m_strChargerType, ToString("charger"));
-    GetNodeAttributeOrDefault(cEPuckChargerNode, "num_robots", unNumChargers, (UInt32)0);
     LOG << "controller " << m_strChargerType << std::endl;
     LOG << "unNumChargers " << unNumChargers << std::endl;
 
     PlaceRobots(cMin, cMax, unNumChargers, m_strChargerType);
-    m_unTotalChargers = unNumChargers;
 
     LOG << "[LOG] Added robots" << std::endl;
 
@@ -1999,9 +1989,9 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
         double nu_m_transfer = m_fDeltaRecharge * tickDuration;
         double xi = m_fDeltaTransferEfficiency;
         double tau = m_fFullChargeCharger / m_fFullChargeWorker;
-        double zeta = un_robots;
+        double zeta = un_robots / m_unTotalChargers;
         if(str_controller_type == "charger") {
-            zeta = m_unTotalWorkers;
+            zeta = m_unTotalWorkers / un_robots;
         }
 
         // print all variables
