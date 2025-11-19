@@ -51,6 +51,9 @@ ZETA_NUM_WORKERS=${ZETA_NUM_WORKERS:-5} # number of workers per mobile charger
 ETA_WORK_ENERGY_RATE=${ETA_WORK_ENERGY_RATE:-1} # If greater than 1, it means more energy is needed to work than to move
 DELTA_COMMUTE=${DELTA_COMMUTE:-700} # duration of one way commute in seconds
 
+NUM_CHARGERS=3
+NUM_WORKERS=$((NUM_CHARGERS * ZETA_NUM_WORKERS))
+
 CAPACITY_CHARGER_MAX=$((TAU_CHARGER_CAPACITY * CAPACITY_MAX))
 
 ####################################################
@@ -158,7 +161,10 @@ do
         sed -i "s/start_charge_charger=\"[0-9]*,[0-9]*\"/start_charge_charger=\"$CAPACITY_CHARGER_MAX,$CAPACITY_CHARGER_MAX\"/" $EXPERIMENT_FILE
 
         # Set number of workers
-        sed -i "s|<e-puck controller=\"worker_mc\" num_robots=\"[0-9]*\"/>|<e-puck controller=\"worker_mc\" num_robots=\"$ZETA_NUM_WORKERS\"/>|" "$EXPERIMENT_FILE"
+        sed -i "s|<e-puck controller=\"worker_mc\" num_robots=\"[0-9]*\"/>|<e-puck controller=\"worker_mc\" num_robots=\"$NUM_WORKERS\"/>|" "$EXPERIMENT_FILE"
+    
+        # Set number of chargers
+        sed -i "s|<e-puck_charger controller=\"charger\" num_robots=\"[0-9]*\"/>|<e-puck_charger controller=\"charger\" num_robots=\"$NUM_CHARGERS\"/>|" "$EXPERIMENT_FILE"
     fi
 
     # Set commute duration />

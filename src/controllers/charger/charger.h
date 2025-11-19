@@ -205,6 +205,11 @@ public:
     */
     virtual Real GetEnergyToCharger() const;
 
+    /* 
+    * Set the IDs of the robots it is assigned to share energy to
+    */
+    virtual void SetEnergyTo(const std::vector<std::string>& assignedWorkers);
+
     /*
     * Get the IDs of the robots it is sharing energy to
     */
@@ -362,12 +367,13 @@ private:
     /* Sharing energy */
     bool bSharingEnergy;
     bool bRequestingEnergy;
-    std::unordered_map<std::string, bool> bAgreedToShareEnergy; // used in the TRAVELER state
-    std::string strEnergyFrom; // used in the CONNECTOR state
-    bool bOtherLowEnergy; // used in the TRAVELER state
-    std::vector<std::string> strEnergyTo; // used in the TRAVELER state
+    std::unordered_map<std::string, bool> bAgreedToShareEnergy;
+    std::string strEnergyFrom;
+    bool bOtherLowEnergy;
+    std::vector<std::string> strAssignedWorkers;
+    std::vector<std::string> strEnergyTo;
     bool bPrevSharingEnergy;
-    Real fDistSE; // Distance to the robot it will share energy to (used in the TRAVELER state) in cm
+    Real fDistSE; // Distance to the robot it will share energy to in cm
     Real fTargetDistSE; // in cm
 
     /* Energy discharge rates */

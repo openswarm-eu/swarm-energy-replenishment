@@ -2016,16 +2016,15 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
         LOG << "tau: " << tau << std::endl;
         LOG << "zeta: " << zeta << std::endl;
 
+        /* Y-axis shift for the work positions */
+        std::vector<Real> y_shift;
+        Real step = m_fFixedChargeAreaSideY / (un_robots + 1);
+        for (int i = 0; i < un_robots; ++i) {
+            Real v = -m_fFixedChargeAreaSideY/2 + (i+1) * step;
+            y_shift.push_back(-v);  
+        }
+
         if(str_controller_type == "worker" || str_controller_type == "worker_mc") {
-            
-            /* Y-axis shift for the work positions */
-            std::vector<Real> y_shift;
-            Real step = 0.1;
-            for (int i = 0; i < un_robots; ++i) {
-                Real val = 0.05 + i * step;
-                y_shift.push_back(val);
-                y_shift.push_back(-val);
-            }
 
             CEPuckEntity* pcEP;
             /* For each robot worker */
@@ -2095,17 +2094,6 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
             }
         } else if(str_controller_type == "charger") {
 
-            /* Y-axis shift for the work positions */
-            std::vector<Real> y_shift;
-            Real step = 0.2;
-            for (int i = 0; i < un_robots; ++i) {
-                Real val = i * step;
-                y_shift.push_back(val);
-                if(i > 0) {
-                    y_shift.push_back(-val);
-                }
-            }
-
             CEPuckChargerEntity* pcEP;
 
             /* For each charger */
@@ -2157,6 +2145,16 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 UInt32 unDurationToRest = static_cast<UInt32>(std::lround(result["delta_m_wait"] * tickDuration));
                 LOG << "Duration to stay at base for charger: " << result["delta_m_wait"] << " seconds = " << unDurationToRest << " steps." << std::endl;
                 cfController->SetTimestepToWaitAtBase(unDurationToRest);
+
+                /* Set assigned workers to share energy */
+                std::vector<std::string> vecAssignedWorkers;
+                for(size_t j = 0; j < m_unTotalWorkers/un_robots; ++j) {
+                    std::ostringstream cWorkerId;
+                    cWorkerId << "F" << (i * (m_unTotalWorkers/un_robots) + j + 1);                    
+                    vecAssignedWorkers.push_back(cWorkerId.str());
+                    LOG << "Charger " << cEPId.str() << " assigned to worker " << cWorkerId.str() << std::endl;
+                }
+                cfController->SetEnergyTo(vecAssignedWorkers);
 
                 /* Reposition the robot */
                 cEPPos.Set(robotTaskPos.GetX(), 

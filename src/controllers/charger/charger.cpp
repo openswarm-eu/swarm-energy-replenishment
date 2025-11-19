@@ -260,6 +260,13 @@ Real CCharger::GetEnergyToCharger() const {
 /****************************************/
 /****************************************/
 
+void CCharger::SetEnergyTo(const std::vector<std::string>& assignedWorkers) {
+    strAssignedWorkers = assignedWorkers;
+}
+
+/****************************************/
+/****************************************/
+
 std::vector<std::string> CCharger::GetEnergyTo() const {
     return strEnergyTo;
 }
@@ -490,16 +497,21 @@ void CCharger::Update() {
     } else {
         if(Check_AtWork(nullptr)) {
             for(const auto& msg : workerMsgs) {
-                // RLOG << "msg.ID: " << msg.ID << " level " << msg.emsg.energyLevel << " " << msg.emsg.from.empty() << std::endl;
-                // msg.Print();
-                if(msg.emsg.requestingEnergy && msg.emsg.from.empty() && std::find(strEnergyTo.begin(), strEnergyTo.end(), msg.ID) == strEnergyTo.end()) {
-                    strEnergyTo.push_back(msg.ID);
-                    fDistSE = msg.direction.Length();
-                    bAgreedToShareEnergy[msg.ID] = true;
-                    RLOG << "Found worker requesting energy " << msg.ID << ", dist=" << fDistSE << std::endl;
-                } else if(!msg.emsg.requestingEnergy && std::find(strEnergyTo.begin(), strEnergyTo.end(), msg.ID) != strEnergyTo.end()) {
-                    strEnergyTo.erase(std::remove(strEnergyTo.begin(), strEnergyTo.end(), msg.ID), strEnergyTo.end());
-                    bAgreedToShareEnergy[msg.ID] = false;
+
+                /* Check if msg.ID is in assignedWorkers */
+                if(std::find(strAssignedWorkers.begin(), strAssignedWorkers.end(), msg.ID) != strAssignedWorkers.end()) {
+                
+                    // RLOG << "msg.ID: " << msg.ID << " level " << msg.emsg.energyLevel << " " << msg.emsg.from.empty() << std::endl;
+                    // msg.Print();
+                    if(msg.emsg.requestingEnergy && msg.emsg.from.empty() && std::find(strEnergyTo.begin(), strEnergyTo.end(), msg.ID) == strEnergyTo.end()) {
+                        strEnergyTo.push_back(msg.ID);
+                        fDistSE = msg.direction.Length();
+                        bAgreedToShareEnergy[msg.ID] = true;
+                        RLOG << "Found worker requesting energy " << msg.ID << ", dist=" << fDistSE << std::endl;
+                    } else if(!msg.emsg.requestingEnergy && std::find(strEnergyTo.begin(), strEnergyTo.end(), msg.ID) != strEnergyTo.end()) {
+                        strEnergyTo.erase(std::remove(strEnergyTo.begin(), strEnergyTo.end(), msg.ID), strEnergyTo.end());
+                        bAgreedToShareEnergy[msg.ID] = false;
+                    }
                 }
             }
         }
