@@ -191,8 +191,8 @@
       <!-- <frame_grabbing directory="frames"
                       base_name="frame_"
                       format="png"
-                      quality="100"
-                      headless_grabbing="false"
+                      quality="50"
+                      headless_grabbing="true"
                       headless_frame_size="1600x1200"
                       headless_frame_rate="10"/> -->
 

@@ -2141,12 +2141,12 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 LOG << "Duration to rest at base for charger: " << result["delta_m_rest"] << " seconds = " << unDurationToRest << " steps." << std::endl;
                 cfController->SetTimestepToRestAtBase(unDurationToRest);
                 // convert from seconds to timesteps and round to nearest integer
-                UInt32 unDurationToCharge = static_cast<UInt32>((std::lround(result["delta_m_charge"]) * tickDuration));
+                UInt32 unDurationToCharge = static_cast<UInt32>((std::lround(result["delta_m_charge"] + 1) * tickDuration));
                 LOG << "Duration to charge at base for charger: " << result["delta_m_charge"] << " seconds = " << unDurationToCharge << " steps." << std::endl;
                 cfController->SetTimestepToChargeAtBase(unDurationToCharge);
 
                 /* Set initial charge */
-                cBattery.SetAvailableCharge(result["c_m_return"]);
+                cBattery.SetAvailableCharge(result["c_m_return"] + 5); // hard-coded high energy margin of 5 unit
                 LOG << "Initial charge for charger " << cEPId.str() << ": " << result["c_m_return"] << std::endl;
 
                 /* Set assigned workers to share energy */

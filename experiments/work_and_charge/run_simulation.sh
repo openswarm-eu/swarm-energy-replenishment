@@ -51,7 +51,7 @@ ZETA_NUM_WORKERS=${ZETA_NUM_WORKERS:-5} # number of workers per mobile charger
 ETA_WORK_ENERGY_RATE=${ETA_WORK_ENERGY_RATE:-1} # If greater than 1, it means more energy is needed to work than to move
 DELTA_COMMUTE=${DELTA_COMMUTE:-700} # duration of one way commute in seconds
 
-NUM_CHARGERS=3
+NUM_CHARGERS=1
 NUM_WORKERS=$((NUM_CHARGERS * ZETA_NUM_WORKERS))
 
 CAPACITY_CHARGER_MAX=$((TAU_CHARGER_CAPACITY * CAPACITY_MAX))

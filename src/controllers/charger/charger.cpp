@@ -963,7 +963,9 @@ unsigned char CCharger::Check_LowEnergy(void* data) {
 
 unsigned char CCharger::Check_TimeToCharge(void* data) {
     /* Return true when the time to charge at base has elapsed */
-    return m_unRemainingTimestepToRestAtBase < m_unTimestepToChargeAtBase || fEnergy < (0.1 / m_fChargerMaxCapacity);
+    // RLOG << "m_unRemainingTimestepToRestAtBase: " << m_unRemainingTimestepToRestAtBase << ", m_unTimestepToChargeAtBase: " << m_unTimestepToChargeAtBase << ", fEnergy: " << fEnergy << std::endl;
+    // RLOG << "cond: " << (m_unRemainingTimestepToRestAtBase < m_unTimestepToChargeAtBase || fEnergy < (0.1 / m_fChargerMaxCapacity)) << std::endl;
+    return m_unRemainingTimestepToRestAtBase <= m_unTimestepToChargeAtBase || fEnergy < (0.1 / m_fChargerMaxCapacity);
 }
 
 unsigned char CCharger::Check_ChargedW(void* data) {
