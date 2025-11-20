@@ -149,15 +149,17 @@ void CCharger::Init(TConfigurationNode& t_node) {
     sct->add_callback(this, std::string("EV_moveToCharge"), &CCharger::Callback_MoveToCharge, NULL, NULL);
     sct->add_callback(this, std::string("EV_shareEnergy"),  &CCharger::Callback_ShareEnergy,  NULL, NULL);
     sct->add_callback(this, std::string("EV_charge"),       &CCharger::Callback_Charge,       NULL, NULL);
+    sct->add_callback(this, std::string("EV_rest"),         &CCharger::Callback_Rest,         NULL, NULL);
 
     /* Register uncontrollable events */
-    sct->add_callback(this, std::string("EV_atWork"),           NULL, &CCharger::Check_AtWork,              NULL);
-    sct->add_callback(this, std::string("EV_notAtWork"),        NULL, &CCharger::Check_NotAtWork,           NULL);
-    sct->add_callback(this, std::string("EV_atCharger"),        NULL, &CCharger::Check_AtCharger,           NULL);
-    sct->add_callback(this, std::string("EV_notAtCharger"),     NULL, &CCharger::Check_NotAtCharger,        NULL);
-    sct->add_callback(this, std::string("EV_lowEnergy"),        NULL, &CCharger::Check_LowEnergy,           NULL);
-    sct->add_callback(this, std::string("EV_finishedCharging"), NULL, &CCharger::Check_finishedCharging,    NULL);
-    sct->add_callback(this, std::string("EV_timeToWork"),       NULL, &CCharger::Check_timeToWork,          NULL);
+    sct->add_callback(this, std::string("EV_atWork"),       NULL, &CCharger::Check_AtWork,       NULL);
+    sct->add_callback(this, std::string("EV_notAtWork"),    NULL, &CCharger::Check_NotAtWork,    NULL);
+    sct->add_callback(this, std::string("EV_atCharger"),    NULL, &CCharger::Check_AtCharger,    NULL);
+    sct->add_callback(this, std::string("EV_notAtCharger"), NULL, &CCharger::Check_NotAtCharger, NULL);
+    sct->add_callback(this, std::string("EV_lowEnergy"),    NULL, &CCharger::Check_LowEnergy,    NULL);
+    sct->add_callback(this, std::string("EV_timeToCharge"), NULL, &CCharger::Check_TimeToCharge, NULL);
+    sct->add_callback(this, std::string("EV_chargedW"),     NULL, &CCharger::Check_ChargedW,     NULL);
+    sct->add_callback(this, std::string("EV_timeToWork"),   NULL, &CCharger::Check_TimeToWork,   NULL);
 
     Reset();
 }
@@ -210,9 +212,15 @@ std::string CCharger::GetLastAction() const {
 /****************************************/
 /****************************************/
 
-void CCharger::SetTimestepToWaitAtBase(UInt32 un_duration) {
-    m_unTimestepToWaitAtBase = un_duration;
-    m_unRemainingTimestepToWaitAtBase = m_unTimestepToWaitAtBase;
+void CCharger::SetTimestepToChargeAtBase(UInt32 un_duration) {
+    m_unTimestepToChargeAtBase = un_duration;
+}
+
+/****************************************/
+/****************************************/
+
+void CCharger::SetTimestepToRestAtBase(UInt32 un_duration) {
+    m_unTimestepToRestAtBase = un_duration;
 }
 
 /****************************************/
@@ -320,6 +328,7 @@ void CCharger::ControlStep() {
         bSharingEnergy = false;
         strEnergyTo.clear();
         // bPerformingTask = false;
+        RLOG << "Energy depleted" << std::endl;
         return;
     }
 
@@ -520,13 +529,13 @@ void CCharger::Update() {
     /* Stay at the base for a predefined duration */
     // When it is inside the base, decrement the timer
     // When it is not inside the base, reset the timer to non-zero
-    if(bCharging && prevEnergy <= fEnergy) {
-        if(m_unRemainingTimestepToWaitAtBase > 0) {
-            m_unRemainingTimestepToWaitAtBase--;
-            RLOG << "Waiting at base, remaining timesteps: " << m_unRemainingTimestepToWaitAtBase << std::endl;
+    if(Check_AtCharger(nullptr)) {
+        if(m_unRemainingTimestepToRestAtBase > 0) {
+            m_unRemainingTimestepToRestAtBase--;
+            RLOG << "Resting at base, remaining timesteps: " << m_unRemainingTimestepToRestAtBase << std::endl;
         }
     } else {
-        m_unRemainingTimestepToWaitAtBase = m_unTimestepToWaitAtBase;
+        m_unRemainingTimestepToRestAtBase = m_unTimestepToRestAtBase + m_unTimestepToChargeAtBase;
     }
 
     prevEnergy = fEnergy;
@@ -884,6 +893,13 @@ void CCharger::Callback_Charge(void* data) {
     RLOG << "ACTION: charge" << std::endl;
 }
 
+void CCharger::Callback_Rest(void* data) {
+    lastControllableAction = "rest";
+    bCharging = false;
+    bSharingEnergy = false;
+    RLOG << "ACTION: rest" << std::endl;
+}
+
 /****************************************/
 /****************************************/
 
@@ -945,23 +961,20 @@ unsigned char CCharger::Check_LowEnergy(void* data) {
     return lowEnergy;
 }
 
-unsigned char CCharger::Check_finishedCharging(void* data) {
+unsigned char CCharger::Check_TimeToCharge(void* data) {
+    /* Return true when the time to charge at base has elapsed */
+    return m_unRemainingTimestepToRestAtBase < m_unTimestepToChargeAtBase || fEnergy < (0.1 / m_fChargerMaxCapacity);
+}
+
+unsigned char CCharger::Check_ChargedW(void* data) {
     /* Return true when it has stopped sharing energy */
     bool noWorkerRequesting = bPrevSharingEnergy && strEnergyTo.empty();
-    // RLOG << "Event: finishedCharging " << noWorkerRequesting << std::endl;
     return noWorkerRequesting;
 }
 
-unsigned char CCharger::Check_timeToWork(void* data) {
-    // TEMP
-    // bool highEnergy = fEnergy >= fEnergyHighThres;
-    // RLOG << "Event: timeToWork " << highEnergy << std::endl;
-    // return highEnergy;
-    if(m_unRemainingTimestepToWaitAtBase == 0 && bCharging) {
-        RLOG << "Event: timeToWork " << 1 << std::endl;
-        return true;
-    }
-    return false;
+unsigned char CCharger::Check_TimeToWork(void* data) {
+    /* Return true when the time to rest at base has elapsed */
+    return m_unRemainingTimestepToRestAtBase == 0;
 }
 
 /*

@@ -974,6 +974,7 @@ void CWorkerMC::ControlStep() {
         msg.emsg.energyLevel = 'D';
         cbyte_msg = msg.GetCByteArray();
         m_pcRABAct->SetData(cbyte_msg);
+        RLOG << "Energy depleted" << std::endl;
         return;
     }
 

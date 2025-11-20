@@ -56,10 +56,13 @@ def calculate_strat2_all_variables(c_max, delta_m_commute, nu_w_work, nu_m_move,
 
     work_2 = n_w * duty_cycle
 
-    # Time to remain at the base
-    delta_m_wait = delta_m_rest + delta_m_charge
+    # # Time to remain at the base
+    # delta_m_wait = delta_m_rest + delta_m_charge
 
-    return c_w_charged, delta_m_wait
+    # c_m_return
+    c_m_return = delta_m_commute * (nu_m_move + nu_min) + delta_m_rest * nu_min
+
+    return c_w_charged, c_m_return, delta_m_charge, delta_m_rest, delta_w_rest
 
 # ----------------------------
 # Test the function
@@ -74,8 +77,8 @@ if __name__ == "__main__":
     nu_m_charge = 191.25
     nu_m_transfer = 191.25
     xi = 0.5
-    tau = 5
-    zeta = 5
+    tau = 3
+    zeta = 3
     n_m = 1
 
     c_w_charged, delta_m_wait = calculate_strat2_all_variables(c_max, delta_m_commute, nu_w_work, nu_m_move,

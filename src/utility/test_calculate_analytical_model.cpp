@@ -58,13 +58,17 @@ std::unordered_map<std::string, double> calculate_model_variables(double c_max, 
         (c_w_charged - delta_w_work * (nu_w_work + nu_min)) / nu_min
     );
 
-    // delta_m_wait
-    double delta_m_wait = delta_m_charge + delta_m_rest;
+    // // delta_m_wait
+    // double delta_m_wait = delta_m_charge + delta_m_rest;
+
+    // c_m_return
+    double c_m_return = delta_m_commute * (nu_m_move + nu_min) + delta_m_rest * nu_min;
 
     std::unordered_map<std::string, double> result;
     result["c_w_charged"] = c_w_charged;
+    result["c_m_return"] = c_m_return;
+    result["delta_m_charge"] = delta_m_charge;
     result["delta_m_rest"] = delta_m_rest;
-    result["delta_m_wait"] = delta_m_wait;
     result["delta_w_rest"] = delta_w_rest;
     return result;
 }

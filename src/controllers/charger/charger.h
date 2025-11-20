@@ -171,9 +171,14 @@ public:
     virtual std::string GetLastAction() const;
 
     /*
-    * Set the duration the charger should wait at the base station after fully charging.
+    * Set the duration the charger should charge at the base station after fully charging.
     */
-    virtual void SetTimestepToWaitAtBase(UInt32 un_duration);
+    virtual void SetTimestepToChargeAtBase(UInt32 un_duration);
+
+    /*
+    * Set the duration the charger should rest at the base station after charging.
+    */
+    virtual void SetTimestepToRestAtBase(UInt32 un_duration);
 
     /*
     * Returns true if the robot is moving
@@ -287,14 +292,16 @@ protected:
     virtual void Callback_MoveToCharge(void* data);
     virtual void Callback_ShareEnergy(void* data);
     virtual void Callback_Charge(void* data);
+    virtual void Callback_Rest(void* data);
 
     virtual unsigned char Check_AtWork(void* data);
     virtual unsigned char Check_NotAtWork(void* data);
     virtual unsigned char Check_AtCharger(void* data);
     virtual unsigned char Check_NotAtCharger(void* data);
     virtual unsigned char Check_LowEnergy(void* data);
-    virtual unsigned char Check_finishedCharging(void* data);
-    virtual unsigned char Check_timeToWork(void* data);
+    virtual unsigned char Check_TimeToCharge(void* data);
+    virtual unsigned char Check_ChargedW(void* data);
+    virtual unsigned char Check_TimeToWork(void* data);
 
 private:
 
@@ -362,7 +369,8 @@ private:
     CVector2 cChargingPosition;
     CVector2 cWorkingPosition;
 
-    UInt32 m_unTimestepToWaitAtBase, m_unRemainingTimestepToWaitAtBase;
+    UInt32 m_unTimestepToChargeAtBase;
+    UInt32 m_unTimestepToRestAtBase, m_unRemainingTimestepToRestAtBase;
 
     /* Sharing energy */
     bool bSharingEnergy;

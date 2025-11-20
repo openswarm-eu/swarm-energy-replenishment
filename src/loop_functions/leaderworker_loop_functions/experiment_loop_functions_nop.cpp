@@ -114,12 +114,17 @@ std::unordered_map<std::string, double> calculate_model_variables(double c_max, 
         (c_w_charged - delta_w_work * (nu_w_work + nu_min)) / nu_min
     );
 
-    // delta_m_wait
-    double delta_m_wait = delta_m_charge + delta_m_rest;
+    // // delta_m_wait
+    // double delta_m_wait = delta_m_charge + delta_m_rest;
+
+    // c_m_return
+    double c_m_return = delta_m_commute * (nu_m_move + nu_min) + delta_m_rest * nu_min;
 
     std::unordered_map<std::string, double> result;
     result["c_w_charged"] = c_w_charged;
-    result["delta_m_wait"] = delta_m_wait;
+    result["c_m_return"] = c_m_return;
+    result["delta_m_charge"] = delta_m_charge;
+    result["delta_m_rest"] = delta_m_rest;
     result["delta_w_rest"] = delta_w_rest;
     return result;
 }
@@ -2132,9 +2137,17 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                                                         nu_min, nu_m_charge, nu_m_transfer,
                                                         xi, tau, zeta);
                 // convert from seconds to timesteps and round to nearest integer
-                UInt32 unDurationToRest = static_cast<UInt32>(std::lround(result["delta_m_wait"] * tickDuration));
-                LOG << "Duration to stay at base for charger: " << result["delta_m_wait"] << " seconds = " << unDurationToRest << " steps." << std::endl;
-                cfController->SetTimestepToWaitAtBase(unDurationToRest);
+                UInt32 unDurationToRest = static_cast<UInt32>((std::lround(result["delta_m_rest"]) * tickDuration));
+                LOG << "Duration to rest at base for charger: " << result["delta_m_rest"] << " seconds = " << unDurationToRest << " steps." << std::endl;
+                cfController->SetTimestepToRestAtBase(unDurationToRest);
+                // convert from seconds to timesteps and round to nearest integer
+                UInt32 unDurationToCharge = static_cast<UInt32>((std::lround(result["delta_m_charge"]) * tickDuration));
+                LOG << "Duration to charge at base for charger: " << result["delta_m_charge"] << " seconds = " << unDurationToCharge << " steps." << std::endl;
+                cfController->SetTimestepToChargeAtBase(unDurationToCharge);
+
+                /* Set initial charge */
+                cBattery.SetAvailableCharge(result["c_m_return"]);
+                LOG << "Initial charge for charger " << cEPId.str() << ": " << result["c_m_return"] << std::endl;
 
                 /* Set assigned workers to share energy */
                 std::vector<std::string> vecAssignedWorkers;
