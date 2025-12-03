@@ -34,7 +34,7 @@ def create_video(dir_path, fps):
     # Writer
     out = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc(*'mp4V'), fps, frameSize)
 
-    for i in range(1, img_num*10+1, 10):
+    for i in range(1, img_num+1):
         print('Frame: {}'.format(i))
         num_zero = 10 - len(str(i))
         prefix = '0' * num_zero
