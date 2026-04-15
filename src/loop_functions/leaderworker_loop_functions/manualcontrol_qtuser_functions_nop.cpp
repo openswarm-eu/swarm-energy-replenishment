@@ -5,11 +5,36 @@
 #include <argos3/plugins/simulator/entities/battery_equipped_entity.h>
 #include <controllers/worker/worker.h>
 #include <controllers/charger/charger.h>
-
+#include <algorithm>
 /****************************************/
 /****************************************/
 
 static const Real DIRECTION_VECTOR_FACTOR = 10.;
+
+/****************************************/
+/****************************************/
+
+CVector2 reduceLength(CVector2 vec, Real reduction) {
+   Real length = std::sqrt(vec.GetX() * vec.GetX() + vec.GetY() * vec.GetY());
+   if (length == 0.0){
+      LOGERR << "Division by zero in reduceLength" << std::endl;
+      return CVector2();  // Avoid division by zero
+   }
+
+   Real newLength = std::max(0.0, length - reduction);  // Ensure non-negative length
+   Real scale = newLength / length;
+
+   return CVector2(vec.GetX()*scale, vec.GetY()*scale);
+}
+
+/****************************************/
+/****************************************/
+
+CVector2 arrowTip(CVector2 point, Real distance, CRadians angle_rad) {
+   Real dx = distance * Cos(angle_rad);
+   Real dy = distance * Sin(angle_rad);
+   return CVector2(point.GetX() + dx, point.GetY() + dy);
+}
 
 /****************************************/
 /****************************************/
@@ -181,26 +206,31 @@ void CManualControlQTUserFunctionsNop::Draw(CEPuckEntity& c_entity) {
          // if(cController.IsSharingEnergy()) {
          //    text += ":Sharing";
          // } else 
+         CColor cColor = CColor::BLACK;
+
          if(cController.IsCharging()) {
             text += ":Charging";
+            cColor = CColor::GREEN;
          } else if(cController.IsWorking()) {
             text += ":Working";
+            cColor = CColor::BLUE;
          } else if(cController.IsMoving()) {
             text += ":Moving";
+            cColor = CColor::GRAY50;  // or CColor(128,128,128,255)
          } else {
             text += ":Idle";
+            cColor = CColor::RED;
          }
-
          /* Append energy level */
          CBatteryEquippedEntity& cBattery = c_entity.GetBatterySensorEquippedEntity();
          Real robot_energy = cBattery.GetAvailableCharge();
-         energyStream << std::fixed << std::setprecision(1) << robot_energy;
-         text += "(" + energyStream.str() + ")";
+         Real full_charge  = cBattery.GetFullCharge();
+         //energyStream << std::fixed << std::setprecision(1) << robot_energy;
+         //text += "(" + energyStream.str() + ")";
          // text += energyStream.str();
          
          /* Apply text color according to energy level */
          
-         CColor cColor = CColor::BLACK;
          // CColor cColor = CColor(0, 191, 0, 255); // GREEN
          // if(robot_energy == 0) {
          //    cColor = CColor(0, 0, 0, 255); // BLACK
@@ -218,6 +248,48 @@ void CManualControlQTUserFunctionsNop::Draw(CEPuckEntity& c_entity) {
                   text,
                   cColor,
                   workerFont); // text
+
+         /* Compute charge ratio in [0,1] */
+//          Real ratio = 0.0f;
+//          if(full_charge > 0.0f) {
+//             ratio = robot_energy / full_charge;
+//             ratio = std::max<Real>(0.0f, std::min<Real>(1.0f, ratio));
+//          }
+//
+//          /* Battery bar just above the robot */
+//          CVector3 cBarPos(0.12, 0.0, 0.27);          // center position of the bar
+//          CVector3 cBarSize(0.02, 0.02, 0.02);      // total bar size (x,y,z)
+//
+//          /* Draw background (empty battery) */
+// //          DrawBox(cBarPos,
+// //                CQuaternion(),                     // no rotation
+// //                cBarSize,
+// //                CColor(50, 50, 50, 255));          // dark grey
+//
+//          /* Draw filled portion inside background */
+//          if(ratio > 0.0f) {
+//             // Same center, smaller in X based on ratio
+//             CVector3 cFillSize(cBarSize.GetX(),
+//                               cBarSize.GetY() * ratio,
+//                               cBarSize.GetZ());
+//
+//             // Same center position is enough; smaller box will sit inside
+//             CVector3 cFillPos = cBarPos;
+//
+//             // Choose fill color (e.g., green→orange→red by energy)
+//             CColor cFillColor = CColor::GREEN;
+//             if(ratio < 0.1f) {
+//                cFillColor = CColor::RED;
+//             } else if(ratio < 0.3f) {
+//                cFillColor = CColor::YELLOW;
+//             }
+//
+//             DrawBox(cFillPos,
+//                   CQuaternion(),
+//                   cFillSize,
+//                   cFillColor);
+//          }
+
       } catch(CARGoSException& ex) {
          THROW_ARGOSEXCEPTION_NESTED("While casting robot as a worker", ex);
       } catch(const std::bad_cast& e) {
@@ -243,14 +315,68 @@ void CManualControlQTUserFunctionsNop::Draw(CEPuckChargerEntity& c_entity) {
          std::string text = c_entity.GetId().c_str();
          // std::string text = "   ";
 
+         /* Draw energy transfer lines */
+         std::vector<std::string> vecEnergyTo = cController.GetEnergyTo();
+         std::unordered_map<std::string,RobotPosition> robotPos = m_pcExperimentLoopFunctions->GetRobotPos();
+         RobotPosition myPos = robotPos[c_entity.GetId()];
+         CRadians cZAngle, cYAngle, cXAngle;
+         myPos.orientation.ToEulerAngles(cZAngle, cYAngle, cXAngle);
+
+         for(const auto& id : vecEnergyTo) {
+            if(robotPos.find(id) != robotPos.end()) {
+               CVector2 pos = robotPos[id].position;
+               /* Find vector from myPos to the other robot pos */
+               CVector2 vec = pos - myPos.position;
+               /* Convert CVector2 to CVector3 */
+               CVector3 vec3 = CVector3(vec.GetX(), vec.GetY(), 0.001);
+               /* rotate vector according to cZAngle */
+               vec3.RotateZ(-cZAngle);
+               /* Create Ray between origin to vec3 */
+               CRay3 ray = CRay3(CVector3(0, 0, 0.001), vec3);
+
+               /* Reduce length of vec3 by the e-puck body radius */
+               CVector2 vec2 = CVector2(vec3.GetX(), vec3.GetY());
+
+               // /* Draw text in the center point along this vector */
+               // std::stringstream oss;
+               // oss << std::fixed << std::setprecision(1) << (vec.Length() / cController.GetRABRange() * 100) << "%";
+               
+               // CVector2 textPos = vec2 / 2;
+               // if(hop.ID[0] == 'L' || stoi(c_entity.GetId().substr(1)) < stoi(hop.ID.substr(1))) {
+               //    DrawText(CVector3(textPos.GetX(), textPos.GetY(), 0.005), oss.str(), CColor::BLACK);
+               // }
+
+               vec2 = reduceLength(vec2, 0.035);
+
+               /* Calculate angle of vec2 */
+               CRadians angle = vec2.Angle().SignedNormalize();
+
+               CVector2 arrowTip1 = arrowTip(vec2, 0.05, angle + CRadians::PI - CRadians::PI_OVER_SIX);
+               CVector2 arrowTip2 = arrowTip(vec2, 0.05, angle + CRadians::PI + CRadians::PI_OVER_SIX);
+               CRay3 ray_1 = CRay3(CVector3(vec2.GetX(), vec2.GetY(), 0.001), CVector3(arrowTip1.GetX(), arrowTip1.GetY(), 0.001));
+               CRay3 ray_2 = CRay3(CVector3(vec2.GetX(), vec2.GetY(), 0.001), CVector3(arrowTip2.GetX(), arrowTip2.GetY(), 0.001));
+
+               /* Draw arrow */
+               CColor arrow_color = CColor::CYAN;
+
+               DrawRay(ray, arrow_color, 4);
+               DrawRay(ray_1, arrow_color, 4);
+               DrawRay(ray_2, arrow_color, 4);
+            }   
+         }
+         CColor cColor = CColor::BLACK;
+
          /* Append energy dependent action */
          std::ostringstream energyStream;
          if(cController.IsSharingEnergy()) {
             text += ":Sharing";
+            cColor = CColor::GREEN;
          } else if(cController.IsCharging()) {
             text += ":Charging";
+            cColor = CColor::BLUE;
          } else if(cController.IsMoving()) {
             text += ":Moving";
+            cColor = CColor::GRAY50;
          } else {
             text += ":Idle";
          }
@@ -258,12 +384,11 @@ void CManualControlQTUserFunctionsNop::Draw(CEPuckChargerEntity& c_entity) {
          /* Append energy level */
          CBatteryEquippedEntity& cBattery = c_entity.GetBatterySensorEquippedEntity();
          Real robot_energy = cBattery.GetAvailableCharge();
-         energyStream << std::fixed << std::setprecision(1) << robot_energy;
-         text += "(" + energyStream.str() + ")";
+         //energyStream << std::fixed << std::setprecision(1) << robot_energy;
+         //text += "(" + energyStream.str() + ")";
          // text += energyStream.str();
          
          /* Apply text color according to energy level */
-         CColor cColor = CColor::BLACK;
          // CColor cColor = CColor(0, 191, 0, 255); // GREEN
          // if(robot_energy == 0) {
          //    cColor = CColor(0, 0, 0, 255); // BLACK
@@ -320,7 +445,7 @@ void CManualControlQTUserFunctionsNop::DrawInWorld() {
 
          /* Draw task */
          CVector2 pos;
-         UInt32 demand;
+         Real demand;
 
          /* Get handle to the task entity */
          if(strTaskType == "rectangle_task_no_demand") {
@@ -345,7 +470,7 @@ void CManualControlQTUserFunctionsNop::DrawInWorld() {
          //          cText.str(),
          //          CColor::BLACK,
          //          taskFont);
-         DrawText(CVector3(pos.GetX(), pos.GetY(), 0.01),
+         DrawText(CVector3(pos.GetX(), pos.GetY() + 0.6, 0.01),
                   cText.str(),
                   CColor::BLACK,
                   taskFont);
@@ -360,6 +485,128 @@ void CManualControlQTUserFunctionsNop::DrawInWorld() {
          //          CColor::BLACK,
          //          numFont);
       }
+   }
+   try {
+      CSpace::TMapPerType& tEPucks =
+         CSimulator::GetInstance().GetSpace().GetEntitiesByType("e-puck");
+
+      for(CSpace::TMapPerType::iterator it = tEPucks.begin();
+          it != tEPucks.end();
+          ++it) {
+
+         CEPuckEntity& cEPuck = *any_cast<CEPuckEntity*>(it->second);
+
+         // Get battery
+         CBatteryEquippedEntity& cBattery = cEPuck.GetBatterySensorEquippedEntity();
+         Real robot_energy = cBattery.GetAvailableCharge();
+         Real full_charge  = cBattery.GetFullCharge();
+
+         if(full_charge <= 0.0f) continue;
+
+         Real ratio = robot_energy / full_charge;
+         ratio = std::max<Real>(0.0f, std::min<Real>(1.0f, ratio));
+
+         // Get robot world position
+         const CVector3& cPos =
+            cEPuck.GetEmbodiedEntity().GetOriginAnchor().Position;
+
+         // World position of bar: above and to the side of robot
+         CVector3 cBarPos(cPos.GetX() + 0.4,   // right in world X
+                          cPos.GetY()+ 0.02,          // same Y
+                          cPos.GetZ() + 0.25);  // above robot
+
+         CVector3 cBarSize(0.3, 0.03, 0.01);
+
+         // Background
+//          DrawBox(cBarPos,
+//                  CQuaternion(),                // no rotation: fixed in world
+//                  cBarSize,
+//                  CColor(50, 50, 50, 255));
+
+         if(ratio > 0.0f) {
+            Real fillHeight = cBarSize.GetX() * ratio;
+
+            CVector3 cFillPos = cBarPos;
+            cFillPos.SetX(cBarPos.GetX() - (cBarSize.GetX() - fillHeight) / 2.0f);
+
+            CVector3 cFillSize(fillHeight,
+                              cBarSize.GetY(),
+                               cBarSize.GetZ());
+
+            CColor cFillColor = CColor::GREEN;
+            if(ratio < 0.1f) {
+               cFillColor = CColor::RED;
+            } else if(ratio < 0.25f) {
+               cFillColor = CColor::YELLOW;
+            }
+
+            DrawBox(cFillPos,
+                    CQuaternion(),
+                    cFillSize,
+                    cFillColor);
+         }
+      }
+
+      CSpace::TMapPerType& tEPucksC =
+         CSimulator::GetInstance().GetSpace().GetEntitiesByType("e-puck_charger");
+      for(CSpace::TMapPerType::iterator it = tEPucksC.begin();
+          it != tEPucksC.end();
+          ++it) {
+
+         CEPuckChargerEntity& cEPuck = *any_cast<CEPuckChargerEntity*>(it->second);
+
+         // Get battery
+         CBatteryEquippedEntity& cBattery = cEPuck.GetBatterySensorEquippedEntity();
+         Real robot_energy = cBattery.GetAvailableCharge();
+         Real full_charge  = cBattery.GetFullCharge();
+
+         if(full_charge <= 0.0f) continue;
+
+         Real ratio = robot_energy / full_charge;
+         ratio = std::max<Real>(0.0f, std::min<Real>(1.0f, ratio));
+
+         // Get robot world position
+         const CVector3& cPos =
+            cEPuck.GetEmbodiedEntity().GetOriginAnchor().Position;
+
+         // World position of bar: above and to the side of robot
+         CVector3 cBarPos(cPos.GetX() - 0.25,   // right in world X
+                          cPos.GetY()+ 0.02,          // same Y
+                          cPos.GetZ() + 0.25);  // above robot
+
+         CVector3 cBarSize(0.3, 0.03, 0.01);
+
+         // Background
+//          DrawBox(cBarPos,
+//                  CQuaternion(),                // no rotation: fixed in world
+//                  cBarSize,
+//                  CColor(50, 50, 50, 255));
+
+         if(ratio > 0.0f) {
+            Real fillHeight = cBarSize.GetX() * ratio;
+
+            CVector3 cFillPos = cBarPos;
+            cFillPos.SetX(cBarPos.GetX() + (cBarSize.GetX() - fillHeight) / 2.0f);
+
+            CVector3 cFillSize(fillHeight,
+                              cBarSize.GetY(),
+                               cBarSize.GetZ());
+
+            CColor cFillColor = CColor::GREEN;
+            if(ratio < 0.1f) {
+               cFillColor = CColor::RED;
+            } else if(ratio < 0.25f) {
+               cFillColor = CColor::YELLOW;
+            }
+
+            DrawBox(cFillPos,
+                    CQuaternion(),
+                    cFillSize,
+                    cFillColor);
+         }
+      }
+   } catch(CARGoSException& ex) {
+      // If there are no e-pucks, just ignore
    }
 }
 

@@ -4,7 +4,7 @@ message TimeStep {
   uint64 time = 1;
   repeated Robot robots = 2;
   repeated Task tasks = 3;
-  optional uint64 points = 4;
+  optional double points = 4;
   optional double totalEnergy = 5;
   optional double workEnergy = 6;
   optional double connectorEnergy = 7;
@@ -52,7 +52,7 @@ message Robot {
 
 message Task {
   string name = 1;
-  uint64 demand = 2;
+  double demand = 2;
   optional uint64 requiredRobots = 3;
   optional uint64 currentRobots = 4;
   optional Position position = 5;

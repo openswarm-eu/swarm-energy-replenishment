@@ -114,8 +114,8 @@ void CWorker::Init(TConfigurationNode& t_node) {
         GetNodeAttribute(GetNode(t_node, "SCT"), "path", m_strSCTPath);
 
         /* Energy */
-        GetNodeAttribute(GetNode(t_node, "energy"), "low_thres", fEnergyLowThres);
-        GetNodeAttribute(GetNode(t_node, "energy"), "high_thres", fEnergyHighThres);
+        // GetNodeAttribute(GetNode(t_node, "energy"), "low_thres", fEnergyLowThres);
+        // GetNodeAttribute(GetNode(t_node, "energy"), "high_thres", fEnergyHighThres);
         GetNodeAttribute(GetNode(t_node, "energy"), "share_dist", fTargetDistSE);
 
     }
@@ -223,6 +223,20 @@ Real CWorker::GetCurrentEnergy() const {
 /****************************************/
 /****************************************/
 
+void CWorker::SetLowEnergyThreshold(Real f_threshold) {
+    fEnergyLowThres = f_threshold;
+}
+
+/****************************************/
+/****************************************/
+
+void CWorker::SetHighEnergyThreshold(Real f_threshold) {
+    fEnergyHighThres = f_threshold;
+}
+
+/****************************************/
+/****************************************/
+
 bool CWorker::IsMoving() const {
     return bMoving;
 }
@@ -239,6 +253,20 @@ bool CWorker::IsCharging() const {
 
 bool CWorker::IsSharingEnergy() const {
     return bSharingEnergy;
+}
+
+/****************************************/
+/****************************************/
+
+void CWorker::SetChargingRegion(const CVector2& c_pos) {
+    cChargingPosition = c_pos;
+}
+
+/****************************************/
+/****************************************/
+
+void CWorker::SetWorkingRegion(const CVector2& c_pos) {
+    cWorkingPosition = c_pos;
 }
 
 /****************************************/
@@ -262,6 +290,14 @@ void CWorker::SetMoveDischargeRate(Real fDeltaPos, Real fMaxCapacity) {
     /* Energy to move per timestep (0.1s) */
     // m_fDeltaHopTravel = m_unConnectorTargetDistance / m_sWheelTurningParams.MaxSpeed * ((fDeltaTime + fDeltaPos) * 10.0) / fMaxCapacity;
     m_fDeltaPos = fDeltaPos;
+}
+
+/****************************************/
+/****************************************/
+
+void CWorker::SetWorkDischargeRate(Real fDeltaWork, Real fMaxCapacity) {
+    /* Energy to work per timestep (0.1s) */
+    m_fDeltaWork = fDeltaWork / fMaxCapacity;
 }
 
 /****************************************/
@@ -468,8 +504,7 @@ void CWorker::Update() {
     CVector2 pos2d = CVector2(pos3d.GetX(), pos3d.GetY());
 
     /* Distance to charging area */
-    Real fChargingAreaX = -0.5;
-    m_fDistToCharger = pos2d.GetX() - fChargingAreaX;
+    m_fDistToCharger = pos2d.GetX() - cChargingPosition.GetX();
 
 }
 
@@ -617,14 +652,11 @@ CVector2 CWorker::GetTravelVector() {
     CRadians cZAngle, cYAngle, cXAngle;
     m_pcPosSens->GetReading().Orientation.ToEulerAngles(cZAngle, cYAngle, cXAngle);
 
-    Real fWorkAreaX = 0.55; // TEMP hard-coded value
-    Real fChargingAreaX = -0.55; // TEMP hard-coded value
-
     CVector2 desiredPosition;
     if(currentMoveType == MoveType::MOVE_TO_WORK) {
-        desiredPosition = CVector2(fWorkAreaX, pos2d.GetY());
+        desiredPosition = cWorkingPosition;
     } else if(currentMoveType == MoveType::MOVE_TO_CHARGE) {
-        desiredPosition = CVector2(fChargingAreaX, pos2d.GetY());
+        desiredPosition = cChargingPosition;
     }
 
     /* Calculate a normalized vector that points to the next waypoint */
@@ -849,8 +881,8 @@ void CWorkerMC::Init(TConfigurationNode& t_node) {
         GetNodeAttribute(GetNode(t_node, "SCT"), "path", m_strSCTPath);
 
         /* Energy */
-        GetNodeAttribute(GetNode(t_node, "energy"), "low_thres", fEnergyLowThres);
-        GetNodeAttribute(GetNode(t_node, "energy"), "high_thres", fEnergyHighThres);
+        // GetNodeAttribute(GetNode(t_node, "energy"), "low_thres", fEnergyLowThres);
+        // GetNodeAttribute(GetNode(t_node, "energy"), "high_thres", fEnergyHighThres);
         GetNodeAttribute(GetNode(t_node, "energy"), "share_dist", fTargetDistSE);
 
     }
@@ -872,6 +904,7 @@ void CWorkerMC::Init(TConfigurationNode& t_node) {
     fDistSE = 100000; // TEMP very large value
 
     m_fDeltaPos = 0.03; // TEMP value. Set using SetMoveDischargeRate()
+    m_fDeltaWork = 1;   // TEMP value. Set using SetWorkDischargeRate()
 
     /*
     * Init SCT Controller
@@ -941,6 +974,7 @@ void CWorkerMC::ControlStep() {
         msg.emsg.energyLevel = 'D';
         cbyte_msg = msg.GetCByteArray();
         m_pcRABAct->SetData(cbyte_msg);
+        RLOG << "Energy depleted" << std::endl;
         return;
     }
 
@@ -1039,7 +1073,8 @@ void CWorkerMC::ControlStep() {
     if(Check_HighEnergy(nullptr))
         strEnergyFrom = ""; // Reset to stop receiving energy
     emsg.from = strEnergyFrom;
-    emsg.to = strEnergyTo;
+    if(strEnergyTo != "")
+        emsg.to.push_back(strEnergyTo);
     msg.emsg = emsg;
 
     // RLOG << "requestingEnergy? " << bRequestingEnergy << std::endl;
@@ -1068,8 +1103,7 @@ void CWorkerMC::Update() {
     CVector2 pos2d = CVector2(pos3d.GetX(), pos3d.GetY());
 
     /* Distance to charging area */
-    Real fChargingAreaX = -0.5;
-    m_fDistToCharger = pos2d.GetX() - fChargingAreaX;
+    m_fDistToCharger = pos2d.GetX() - cChargingPosition.GetX();
 
     /* Broadcast to neighbors to request energy */
     if(!bRequestingEnergy) 
@@ -1115,11 +1149,12 @@ void CWorkerMC::Travel() {
 
     /* Calculate overall force applied to the robot */
     CVector2 travelForce;
-    if(bRequestingEnergy && !strEnergyFrom.empty() && currentMoveType == MoveType::MOVE_TO_CHARGE) {
-        travelForce = GetApproachToShareEnergyVector(shareEnergyMsg);
-    } else {
+    // if(bRequestingEnergy && !strEnergyFrom.empty() && currentMoveType == MoveType::MOVE_TO_CHARGE) {
+    //     // travelForce = GetApproachToShareEnergyVector(shareEnergyMsg);
+    //     travelForce = CVector2();
+    // } else {
         travelForce = GetTravelVector();
-    }
+    // }
     CVector2 robotForce    = GetRobotRepulsionVector(repulseMsgs);
     CVector2 obstacleForce = GetObstacleRepulsionVector();
 
@@ -1160,13 +1195,11 @@ CVector2 CWorkerMC::GetTravelVector() {
     CRadians cZAngle, cYAngle, cXAngle;
     m_pcPosSens->GetReading().Orientation.ToEulerAngles(cZAngle, cYAngle, cXAngle);
 
-    Real fWorkAreaX = 0.55; // TEMP hard-coded value
-
     CVector2 desiredPosition;
     // if(currentMoveType == MoveType::MOVE_TO_WORK) {
-        desiredPosition = CVector2(fWorkAreaX, pos2d.GetY());
+        desiredPosition = cWorkingPosition;
     // } else if(currentMoveType == MoveType::MOVE_TO_CHARGE) {
-    //     desiredPosition = CVector2(fWorkAreaX, pos2d.GetY());
+    //     desiredPosition = cChargingPosition;
     // }
 
     /* Calculate a normalized vector that points to the next waypoint */
@@ -1209,7 +1242,7 @@ void CWorkerMC::CheckEnergyProvider() {
     if( !strEnergyFrom.empty() ) {
         for(const auto& msg : chargerMsgs) {
             // RLOG << "Checking msg.ID:" << msg.ID << " = from: " << strEnergyFrom << std::endl;
-            if(msg.ID == strEnergyFrom && msg.emsg.to == this->GetId()) { // Is it still willing to share energy?
+            if(msg.ID == strEnergyFrom && std::find(msg.emsg.to.begin(), msg.emsg.to.end(), this->GetId()) != msg.emsg.to.end()) { // Is it still willing to share energy?
                 m_fDistToMC = msg.direction.Length();
                 RLOG << "Energy provider still " << msg.ID << ", dist = " << m_fDistToMC << std::endl;
                 return;
@@ -1222,7 +1255,7 @@ void CWorkerMC::CheckEnergyProvider() {
     /* Find a new energy provider */
     Message closestProviderMsg;
     for(const auto& msg : chargerMsgs) {
-        if(msg.emsg.to == this->GetId()) {
+        if(std::find(msg.emsg.to.begin(), msg.emsg.to.end(), this->GetId()) != msg.emsg.to.end()) {
             if(closestProviderMsg.Empty() || msg.direction.Length() < closestProviderMsg.direction.Length()) {
                 closestProviderMsg = msg;
                 strEnergyFrom = msg.ID;
@@ -1275,7 +1308,7 @@ void CWorkerMC::Callback_Charge(void* data) {
 /* Callback functions (Uncontrollable events) */
 
 unsigned char CWorkerMC::Check_AtWork(void* data) {
-    if(m_pcGround->GetReadings()[0] == CColor(255,191,191).ToGrayScale() / 255.0f) {
+    if(m_pcGround->GetReadings()[0] == CColor(191,255,191).ToGrayScale() / 255.0f) {
         // RLOG << "Event: atWork " << 1 << std::endl;
         return true;
     }
@@ -1284,7 +1317,7 @@ unsigned char CWorkerMC::Check_AtWork(void* data) {
 }
 
 unsigned char CWorkerMC::Check_NotAtWork(void* data) {
-    if(m_pcGround->GetReadings()[0] == CColor(255,191,191).ToGrayScale() / 255.0f) {
+    if(m_pcGround->GetReadings()[0] == CColor(191,255,191).ToGrayScale() / 255.0f) {
         // RLOG << "Event: notAtWork " << 0 << std::endl;
         return false;
     }
@@ -1294,20 +1327,21 @@ unsigned char CWorkerMC::Check_NotAtWork(void* data) {
 
 unsigned char CWorkerMC::Check_AtCharger(void* data) {
     bool isNearCharger = m_fDistToMC <= fTargetDistSE;
-    // RLOG << "Event: atCharger " << isNearCharger << std::endl;
+    // RLOG << "Event: atCharger " << isNearCharger << ", m_fDistToMC: " << m_fDistToMC << std::endl;
     return isNearCharger;
 }
 
 unsigned char CWorkerMC::Check_NotAtCharger(void* data) {
     bool isNearCharger = m_fDistToMC <= fTargetDistSE;
-    // RLOG << "Event: atCharger " << isNearCharger << std::endl;
     return !isNearCharger;
 }
 
 unsigned char CWorkerMC::Check_LowEnergy(void* data) {
     /* Return true when the current energy is below the lower threshold */    
-    bool lowEnergy = fEnergy < ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 10) / 100;
+    // bool lowEnergy = fEnergy < ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 10) / 100;
+    bool lowEnergy = fEnergy < fEnergyLowThres + m_fDeltaWork;
     // RLOG << "Event: lowEnergy " << lowEnergy << std::endl;
+    // RLOG << "fEnergy: " << fEnergy << ", thres: " << fEnergyLowThres << ", delta: " << m_fDeltaWork << std::endl;
     // if(GetId() == "F1") {
     //     RLOG << "m_fDeltaPos: " << m_fDeltaPos << std::endl;
     //     RLOG << "fEnergy: " << fEnergy << std::endl;

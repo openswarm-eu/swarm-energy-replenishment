@@ -171,6 +171,16 @@ public:
     virtual std::string GetLastAction() const;
 
     /*
+    * Set the duration the charger should charge at the base station after fully charging.
+    */
+    virtual void SetTimestepToChargeAtBase(UInt32 un_duration);
+
+    /*
+    * Set the duration the charger should rest at the base station after charging.
+    */
+    virtual void SetTimestepToRestAtBase(UInt32 un_duration);
+
+    /*
     * Returns true if the robot is moving
     */
     virtual bool IsMoving() const;
@@ -185,10 +195,30 @@ public:
     */
     virtual bool IsSharingEnergy() const;
 
-    /*
-    * Get the ID of the robot it is sharing energy to
+    /* 
+    * Set charging region position
     */
-    virtual std::string GetEnergyTo() const;
+    virtual void SetChargingRegion(const CVector2& c_pos);
+
+    /* 
+    * Set working region position
+    */
+    virtual void SetWorkingRegion(const CVector2& c_pos);
+
+    /* 
+    * Get energy needed to return to the base region [0,1]
+    */
+    virtual Real GetEnergyToCharger() const;
+
+    /* 
+    * Set the IDs of the robots it is assigned to share energy to
+    */
+    virtual void SetEnergyTo(const std::vector<std::string>& assignedWorkers);
+
+    /*
+    * Get the IDs of the robots it is sharing energy to
+    */
+    virtual std::vector<std::string> GetEnergyTo() const;
 
     /*
     * Get the distance the robot can share energy to
@@ -262,13 +292,16 @@ protected:
     virtual void Callback_MoveToCharge(void* data);
     virtual void Callback_ShareEnergy(void* data);
     virtual void Callback_Charge(void* data);
+    virtual void Callback_Rest(void* data);
 
     virtual unsigned char Check_AtWork(void* data);
     virtual unsigned char Check_NotAtWork(void* data);
     virtual unsigned char Check_AtCharger(void* data);
     virtual unsigned char Check_NotAtCharger(void* data);
     virtual unsigned char Check_LowEnergy(void* data);
-    virtual unsigned char Check_HighEnergy(void* data);
+    virtual unsigned char Check_TimeToCharge(void* data);
+    virtual unsigned char Check_ChargedW(void* data);
+    virtual unsigned char Check_TimeToWork(void* data);
 
 private:
 
@@ -330,16 +363,25 @@ private:
     Real fEnergyHighThres;
     bool bMoving;
     bool bCharging;
+    Real prevEnergy;
     // static constexpr UInt8 chargeAreaID = 1; // Team ID of the charging area (hard-coded to travel to team 1)
     
+    CVector2 cChargingPosition;
+    CVector2 cWorkingPosition;
+
+    UInt32 m_unTimestepToChargeAtBase;
+    UInt32 m_unTimestepToRestAtBase, m_unRemainingTimestepToRestAtBase;
+
     /* Sharing energy */
     bool bSharingEnergy;
     bool bRequestingEnergy;
-    bool bAgreedToShareEnergy; // used in the TRAVELER state
-    std::string strEnergyFrom; // used in the CONNECTOR state
-    bool bOtherLowEnergy; // used in the TRAVELER state
-    std::string strEnergyTo; // used in the TRAVELER state
-    Real fDistSE; // Distance to the robot it will share energy to (used in the TRAVELER state) in cm
+    std::unordered_map<std::string, bool> bAgreedToShareEnergy;
+    std::string strEnergyFrom;
+    bool bOtherLowEnergy;
+    std::vector<std::string> strAssignedWorkers;
+    std::vector<std::string> strEnergyTo;
+    bool bPrevSharingEnergy;
+    Real fDistSE; // Distance to the robot it will share energy to in cm
     Real fTargetDistSE; // in cm
 
     /* Energy discharge rates */
@@ -347,6 +389,7 @@ private:
     Real m_fWorkerMaxCapacity, m_fChargerMaxCapacity;
     Real m_fDistToMC; // Distance to the mobile charger (used in the follower state) in cm
     Real m_fDistToCharger;
+    Real m_fEnergyToCharger;
     Real m_fDesiredAngleOffset;
 };
 

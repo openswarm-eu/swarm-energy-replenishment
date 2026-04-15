@@ -8,6 +8,8 @@
 #include <argos3/plugins/simulator/entities/battery_equipped_entity.h>
 #include <argos3/plugins/simulator/entities/rectangle_task_entity.h>
 
+#include <utility/robot_position.h>
+
 #include <unordered_map>
 #include <unordered_set>
 
@@ -26,6 +28,7 @@ public:
    virtual CColor GetFloorColor(const CVector2& c_position_on_plane);
    virtual void PreStep();
    virtual void PostStep();
+   virtual std::unordered_map<std::string,RobotPosition> GetRobotPos() const;
    // virtual std::vector<CVector2> GetArenaSize() const;
    virtual bool IsDrawRobotLabel() const;
    virtual bool IsLogging();
@@ -40,6 +43,8 @@ private:
    TConfigurationNode config;
    std::vector<std::string> m_vecEntityID;
 
+   std::unordered_map<std::string,RobotPosition> robotPos;
+
    std::vector<CVector2> m_vecWaypointPos;
    CFloorEntity* m_pcFloor;
    CRandom::CRNG* m_pcRNG;
@@ -51,14 +56,13 @@ private:
    bool m_bTaskComplete;
    UInt32 m_unNextTaskId;
    UInt32 m_unTotalTasks;
-   UInt32 m_unTaskDemand;
-   UInt32 m_unPointsObtained;
+   // UInt32 m_unTaskDemand;
+   Real m_unPointsObtained;
    bool m_bNoDemandTasks;
 
    /* Energy */
-   CVector2 m_cFixedChargePos, m_cMobileChargePos, m_cTaskPos;
+   CVector2 m_cFixedChargePos, m_cTaskPos;
    Real m_fFixedChargeAreaSideX, m_fFixedChargeAreaSideY;
-   Real m_fMobileChargeAreaSideX, m_fMobileChargeAreaSideY;
    Real m_fTaskAreaSideX, m_fTaskAreaSideY;
 
    Real m_fEnergyConsumed;
@@ -91,7 +95,11 @@ private:
    Real m_fDeltaPosCharger;
    Real m_fDeltaWork;
    Real m_fDeltaRecharge;
-   Real m_fDeltaTransferLoss;
+   Real m_fDeltaTransferEfficiency;
+   Real m_fWorkPerStep;
+
+   /* Commute */
+   Real m_fCommuteDuration;
 
    /* Temp stored variables to init chargers */
    std::map<UInt32,CVector2> m_vecTeamCenters;   // key = team_id, value = team_center
@@ -138,8 +146,8 @@ private:
    // void InitChargers();
 
    /* Init tasks */
-   void InitTasks(); // Testing
-   void InitTasksCircular(); // Scalability analysis experiment
+   // void InitTasks(); // Testing
+   // void InitTasksCircular(); // Scalability analysis experiment
    void InitTask();
 
    /* Assign tasks */

@@ -17,6 +17,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <cmath>
 #include <google/protobuf/util/json_util.h>
 #include <google/protobuf/util/delimited_message_util.h>
 #include <protos/generated/time_step.pb.h>
@@ -28,7 +29,7 @@ namespace fs = std::filesystem;
 
 static const Real        EP_RADIUS        = 0.035f;
 static const Real        EP_AREA          = ARGOS_PI * Square(0.035f);
-static const Real        EP_RAB_RANGE     = 0.5333333333f; // 1.6 * (1/3)
+static const Real        EP_RAB_RANGE     = 2.26274f; //0.5333333333f; // 1.6 * (1/3)
 static const std::string WO_CONTROLLER    = "worker";
 static const std::string WOMC_CONTROLLER  = "worker_mc";
 static const std::string CH_CONTROLLER    = "charger";
@@ -38,6 +39,8 @@ static const UInt32      MAX_ROBOT_TRIALS = 20;
 static const std::string BINARY_FILENAME   = "log_data.pb";
 static const std::string SUMMARY_FILENAME  = "summary.csv";
 static const std::string COMMAND_FILENAME  = "commands.csv";
+
+static const std::string PHYSICS_ENGINE_NAME = "dyn2d";
 
 /****************************************/
 /****************************************/
@@ -50,6 +53,80 @@ bool PointIsInside(Real x1, Real y1, Real x2, Real y2, Real x, Real y)
         return true;
  
     return false;
+}
+
+/****************************************/
+/****************************************/
+
+std::unordered_map<std::string, double> calculate_model_variables(double c_max, double delta_m_commute, double nu_w_work, double nu_m_move,
+                                                                  double nu_min, double nu_m_charge, double nu_m_transfer,
+                                                                  double xi, double tau, double zeta) 
+{
+    double c_m_max = tau * c_max;
+
+    // delta_m_rest for case 2
+    double delta_m_rest_case_2 = std::max(0.0, 
+        c_max / (nu_w_work + nu_min) * (1 - nu_min / nu_m_charge)
+        - 2 * delta_m_commute * (1 + nu_m_move / nu_m_charge)
+        - c_max / nu_m_charge * ((zeta / xi) * nu_m_transfer + nu_min) / (nu_m_transfer - nu_min)
+    );
+
+    // c_m_charged
+    double c_m_charged = std::max(0.0, std::min(c_m_max,
+        2 * (nu_m_move + nu_min) * delta_m_commute
+        + c_max * ((zeta / xi) * nu_m_transfer + nu_min) / (nu_m_transfer - nu_min)
+        + nu_min * delta_m_rest_case_2
+    ));
+
+    // delta_m_charge
+    double delta_m_charge = c_m_charged / (nu_m_charge - nu_min);
+
+    // delta_m_rest for case 1
+    double delta_m_rest_case_1 = std::max(0.0, 
+        (c_m_charged - 2 * (nu_m_move + nu_min) * delta_m_commute) / nu_min
+        - (c_m_charged / (nu_m_charge - nu_min) * nu_m_charge - 2 * delta_m_commute * nu_m_move)
+        / (nu_min + (nu_min * nu_min) / (nu_w_work + nu_min) * (nu_m_transfer - nu_min) / (((zeta / xi) * nu_m_transfer) + nu_min))
+    );
+
+    // delta_transfer
+    double delta_transfer = std::max(0.0, std::min(
+        c_max / (nu_m_transfer - nu_min),
+        (c_m_charged - 2 * (nu_m_move + nu_min) * delta_m_commute) / (((zeta / xi) * nu_m_transfer) + nu_min)
+        - (nu_min / (((zeta / xi) * nu_m_transfer) + nu_min)) * delta_m_rest_case_1
+    ));
+
+    // c_w_charged
+    double c_w_charged = (nu_m_transfer - nu_min) * delta_transfer;
+
+    // delta_m_rest
+    double delta_m_rest = std::max(0.0,
+        (c_m_charged - 2 * delta_m_commute * (nu_m_move + nu_min)) / nu_min
+        - delta_transfer * (((zeta / xi) * nu_m_transfer) + nu_min) / nu_min
+    );
+
+    // delta_w_work
+    double delta_w_work = std::max(0.0,
+        (c_w_charged - (delta_m_charge + 2 * delta_m_commute + delta_m_rest) * nu_min) / nu_w_work
+    );
+
+    // delta_w_rest
+    double delta_w_rest = std::max(0.0,
+        (c_w_charged - delta_w_work * (nu_w_work + nu_min)) / nu_min
+    );
+
+    // // delta_m_wait
+    // double delta_m_wait = delta_m_charge + delta_m_rest;
+
+    // c_m_return
+    double c_m_return = delta_m_commute * (nu_m_move + nu_min) + delta_m_rest * nu_min;
+
+    std::unordered_map<std::string, double> result;
+    result["c_w_charged"] = c_w_charged;
+    result["c_m_return"] = c_m_return;
+    result["delta_m_charge"] = delta_m_charge;
+    result["delta_m_rest"] = delta_m_rest;
+    result["delta_w_rest"] = delta_w_rest;
+    return result;
 }
 
 /****************************************/
@@ -139,25 +216,34 @@ void CExperimentLoopFunctionsNop::Init(TConfigurationNode& t_node) {
         TConfigurationNode& tExtraBatteryInfo = GetNode(config, "extra_battery_info");
         GetNodeAttributeOrDefault(tExtraBatteryInfo, "delta_work", m_fDeltaWork, 0.055);
         GetNodeAttributeOrDefault(tExtraBatteryInfo, "delta_recharge", m_fDeltaRecharge, 100.0);
-        GetNodeAttributeOrDefault(tExtraBatteryInfo, "delta_transfer_loss", m_fDeltaTransferLoss, 0.0);
+        GetNodeAttributeOrDefault(tExtraBatteryInfo, "delta_transfer_efficiency", m_fDeltaTransferEfficiency, 0.0);
+        GetNodeAttributeOrDefault(tExtraBatteryInfo, "work_per_step", m_fWorkPerStep, 0.1);
+
+        TConfigurationNode& tCommute = GetNode(config, "commute_region");
+        GetNodeAttributeOrDefault(tCommute, "travel_duration", m_fCommuteDuration, 15.0);
 
         /* ############################# */
         m_fEnergyShared = 0;
         m_fEnergyLost = 0;
         m_bNoDemandTasks = true;
         /* Energy-aware swarm */
-        m_cFixedChargePos = CVector2(-0.65, 0);
-        m_fFixedChargeAreaSideX = 0.3;
-        m_fFixedChargeAreaSideY = 1.6;
-        
-        m_cMobileChargePos = CVector2(0.35, 0);
-        m_fMobileChargeAreaSideX = 0.3;
-        m_fMobileChargeAreaSideY = 1.6;
 
-        m_cTaskPos = CVector2(0.65, 0);
+        // Get arena size from simulation
+        CVector3 cArenaSize = GetSpace().GetArenaSize();
+        LOG << "Arena Size: X = " << cArenaSize.GetX() << " Y = " << cArenaSize.GetY() << std::endl;
+
+        m_cFixedChargePos = CVector2(-cArenaSize.GetX()/2 + 1 + 0.15, 0);
+        m_fFixedChargeAreaSideX = 0.3;
+        m_fFixedChargeAreaSideY = 1.0;
+        
+        // m_cMobileChargePos = CVector2(0.35, 0);
+        // m_fMobileChargeAreaSideX = 0.3;
+        // m_fMobileChargeAreaSideY = 1.0;
+
+        m_cTaskPos = CVector2(cArenaSize.GetX()/2 - 1 - 0.15, 0);
         m_fTaskAreaSideX = 0.3;
-        m_fTaskAreaSideY = 1.6;
-        CVector2 cCenter = CVector2(0.65, 0);
+        m_fTaskAreaSideY = 1.0;
+        LOG << "Fixed Task Position: " << m_cTaskPos << std::endl;
         
         InitRobots();
         InitTask();
@@ -171,15 +257,15 @@ void CExperimentLoopFunctionsNop::Init(TConfigurationNode& t_node) {
         // m_bNoDemandTasks = false;
         // InitTasks();
 
-        if(m_bLogging) {
-            /* Log arena information */
-            m_cOutput.open(m_strSummaryFilePath.c_str(), std::ios_base::app);
-            // m_cOutput << "ARENA_RADIUS," << m_fArenaRadius << "\n";
-            // m_cOutput << "DEPLOY_RADIUS," << m_fDeploymentRadius << "\n";
-            m_cOutput << "DELTA_WORK," << m_fDeltaWork << "\n";
-            // m_cOutput << "DELTA_POS_CHARGER," << m_fDeltaPosCharger << "\n";
-            m_cOutput.close();
-        }
+        // if(m_bLogging) {
+        //     /* Log arena information */
+        //     m_cOutput.open(m_strSummaryFilePath.c_str(), std::ios_base::app);
+        //     // m_cOutput << "ARENA_RADIUS," << m_fArenaRadius << "\n";
+        //     // m_cOutput << "DEPLOY_RADIUS," << m_fDeploymentRadius << "\n";
+        //     m_cOutput << "DELTA_WORK," << m_fDeltaWork << "\n";
+        //     // m_cOutput << "DELTA_POS_CHARGER," << m_fDeltaPosCharger << "\n";
+        //     m_cOutput.close();
+        // }
     }
     catch(CARGoSException& ex) {
         THROW_ARGOSEXCEPTION_NESTED("Error initializing loop functions!", ex);
@@ -237,26 +323,26 @@ void CExperimentLoopFunctionsNop::Destroy() {
 CColor CExperimentLoopFunctionsNop::GetFloorColor(const CVector2& c_position_on_plane) {
     
     /* Charging area */
-    if(PointIsInside(m_cFixedChargePos.GetX() - m_fFixedChargeAreaSideX/2 - 0.025f,
-                    m_cFixedChargePos.GetY() - m_fFixedChargeAreaSideY/2 - 0.025f,
+    if(PointIsInside(m_cFixedChargePos.GetX() - m_fFixedChargeAreaSideX/2,
+                    m_cFixedChargePos.GetY() - m_fFixedChargeAreaSideY/2,
                     m_cFixedChargePos.GetX() + m_fFixedChargeAreaSideX/2,
-                    m_cFixedChargePos.GetY() + m_fFixedChargeAreaSideY/2 + 0.025f,
-                    c_position_on_plane.GetX(),         
+                    m_cFixedChargePos.GetY() + m_fFixedChargeAreaSideY/2,
+                    c_position_on_plane.GetX(),
                     c_position_on_plane.GetY())) {
-        return CColor(191,255,191);
+        return CColor(191,191,255);
     }
 
-    /* Energy Sharing area */
-    if(m_unTotalChargers > 0) {
-        if(PointIsInside(m_cMobileChargePos.GetX() - m_fMobileChargeAreaSideX/2,
-                        m_cMobileChargePos.GetY() - m_fMobileChargeAreaSideY/2 - 0.025f,
-                        m_cMobileChargePos.GetX() + m_fMobileChargeAreaSideX/2,
-                        m_cMobileChargePos.GetY() + m_fMobileChargeAreaSideY/2 + 0.025f,
-                        c_position_on_plane.GetX(),         
-                        c_position_on_plane.GetY())) {
-            return CColor(191,191,255);
-        }
-    }
+    // /* Energy Sharing area */
+    // if(m_unTotalChargers > 0) {
+    //     if(PointIsInside(m_cMobileChargePos.GetX() - m_fMobileChargeAreaSideX/2,
+    //                     m_cMobileChargePos.GetY() - m_fMobileChargeAreaSideY/2 - 0.025f,
+    //                     m_cMobileChargePos.GetX() + m_fMobileChargeAreaSideX/2,
+    //                     m_cMobileChargePos.GetY() + m_fMobileChargeAreaSideY/2 + 0.025f,
+    //                     c_position_on_plane.GetX(),         
+    //                     c_position_on_plane.GetY())) {
+    //         return CColor(191,191,255);
+    //     }
+    // }
 
     CSpace::TMapPerType* cCTasks;
     if(m_bNoDemandTasks) {
@@ -272,23 +358,23 @@ CColor CExperimentLoopFunctionsNop::GetFloorColor(const CVector2& c_position_on_
         if(m_bNoDemandTasks) {
             CRectangleTaskNoDemandEntity& cCTask = *any_cast<CRectangleTaskNoDemandEntity*>(it->second);
             if(PointIsInside(cCTask.GetPosition().GetX() - cCTask.GetWidthX()/2,
-                            cCTask.GetPosition().GetY() - cCTask.GetWidthY()/2 - 0.025f,
-                            cCTask.GetPosition().GetX() + cCTask.GetWidthX()/2 + 0.025f,
-                            cCTask.GetPosition().GetY() + cCTask.GetWidthY()/2 + 0.025f,
+                            cCTask.GetPosition().GetY() - cCTask.GetWidthY()/2,
+                            cCTask.GetPosition().GetX() + cCTask.GetWidthX()/2,
+                            cCTask.GetPosition().GetY() + cCTask.GetWidthY()/2,
                             c_position_on_plane.GetX(),         
                             c_position_on_plane.GetY())) {
-                return CColor(255,191,191);
+                return CColor(191,255,191);
             }
         } else {
             CRectangleTaskEntity& cCTask = *any_cast<CRectangleTaskEntity*>(it->second);
             if(PointIsInside(cCTask.GetPosition().GetX() - cCTask.GetWidthX()/2,
-                            cCTask.GetPosition().GetY() - cCTask.GetWidthY()/2 - 0.025f,
-                            cCTask.GetPosition().GetX() + cCTask.GetWidthX()/2 + 0.025f,
-                            cCTask.GetPosition().GetY() + cCTask.GetWidthY()/2 + 0.025f,
-                            c_position_on_plane.GetX(),         
+                            cCTask.GetPosition().GetY() - cCTask.GetWidthY()/2,
+                            cCTask.GetPosition().GetX() + cCTask.GetWidthX()/2,
+                            cCTask.GetPosition().GetY() + cCTask.GetWidthY()/2,
+                            c_position_on_plane.GetX(),
                             c_position_on_plane.GetY())) {
                 if(cCTask.GetDemand() > 0) {
-                    return CColor(255,191,191);
+                    return CColor(191,255,191);
                 } else {
                     return CColor(255,250,250);
                 }
@@ -360,6 +446,10 @@ void CExperimentLoopFunctionsNop::PreStep() {
                 /* Current location */
                 CVector2 cPos = CVector2(cEPuck.GetEmbodiedEntity().GetOriginAnchor().Position.GetX(),
                                          cEPuck.GetEmbodiedEntity().GetOriginAnchor().Position.GetY());
+                RobotPosition cRobotPos;
+                cRobotPos.position = cPos;
+                cRobotPos.orientation = cEPuck.GetEmbodiedEntity().GetOriginAnchor().Orientation;
+                robotPos[cEPuck.GetId()] = cRobotPos;
 
                 if(m_bTaskExists) {
 
@@ -433,9 +523,21 @@ void CExperimentLoopFunctionsNop::PreStep() {
             try {
                 CCharger& cController = dynamic_cast<CCharger&>(cEPuck.GetControllableEntity().GetController());
 
-                /* Store the robot this charger intends to share energy to */
-                if(!cController.GetEnergyTo().empty() )
-                    setChargersSharingEnergyTo.insert(cController.GetEnergyTo());
+                /* Current location */
+                CVector2 cPos = CVector2(cEPuck.GetEmbodiedEntity().GetOriginAnchor().Position.GetX(),
+                                         cEPuck.GetEmbodiedEntity().GetOriginAnchor().Position.GetY());
+                RobotPosition cRobotPos;
+                cRobotPos.position = cPos;
+                cRobotPos.orientation = cEPuck.GetEmbodiedEntity().GetOriginAnchor().Orientation;
+                robotPos[cEPuck.GetId()] = cRobotPos;
+
+                /* Store the robot(s) this charger intends to share energy to */
+                const std::vector<std::string> &vecEnergyTo = cController.GetEnergyTo();
+                if(!vecEnergyTo.empty()) {
+                    for(const auto &s : vecEnergyTo) {
+                        setChargersSharingEnergyTo.insert(s);
+                    }
+                }
 
             } catch(CARGoSException& ex) {
                 THROW_ARGOSEXCEPTION_NESTED("While casting robot as a charger", ex);
@@ -485,7 +587,7 @@ void CExperimentLoopFunctionsNop::PostStep() {
 
             if(m_bNoDemandTasks) {
                 CRectangleTaskNoDemandEntity& cCTask = *any_cast<CRectangleTaskNoDemandEntity*>(itTask->second);
-                UInt32 currentWorkPerformed = cCTask.GetWorkPerformed();
+                Real currentWorkPerformed = cCTask.GetWorkPerformed();
 
                 cCTask.SetCurrentRobotNum(m_mapRobotPerTask[cCTask.GetId()]);
 
@@ -493,12 +595,12 @@ void CExperimentLoopFunctionsNop::PostStep() {
                 if(m_mapRobotPerTask[cCTask.GetId()] >= cCTask.GetMinRobotNum()) {
 
                     /* Update task demand */
-                    cCTask.SetWorkPerformed(currentWorkPerformed + m_mapRobotPerTask[cCTask.GetId()]);
-                    m_unPointsObtained += m_mapRobotPerTask[cCTask.GetId()];
+                    cCTask.SetWorkPerformed(currentWorkPerformed + m_mapRobotPerTask[cCTask.GetId()] * m_fWorkPerStep);
+                    m_unPointsObtained += m_mapRobotPerTask[cCTask.GetId()] * m_fWorkPerStep;
                 }
             } else {
                 CRectangleTaskEntity& cCTask = *any_cast<CRectangleTaskEntity*>(itTask->second);
-                UInt32 currentDemand = cCTask.GetDemand();
+                Real currentDemand = cCTask.GetDemand();
 
                 cCTask.SetCurrentRobotNum(m_mapRobotPerTask[cCTask.GetId()]);
 
@@ -542,26 +644,26 @@ void CExperimentLoopFunctionsNop::PostStep() {
     // }
 
     /* Loop workers to find robots that wishes to transfer energy */
-    std::unordered_map<std::string,CEPuckEntity> mapTravelerProviders;
+    // std::unordered_map<std::string,CEPuckEntity> mapTravelerProviders;
     CSpace::TMapPerType& m_cEPucks = GetSpace().GetEntitiesByType("e-puck");
-    for(CSpace::TMapPerType::iterator itEpuck = m_cEPucks.begin(); itEpuck != m_cEPucks.end(); ++itEpuck) {
+    // for(CSpace::TMapPerType::iterator itEpuck = m_cEPucks.begin(); itEpuck != m_cEPucks.end(); ++itEpuck) {
 
-        /* Get handle to e-puck entity and controller */
-        CEPuckEntity& cEPuck = *any_cast<CEPuckEntity*>(itEpuck->second);
-        try {
-            CWorker& cController = dynamic_cast<CWorker&>(cEPuck.GetControllableEntity().GetController());
-            /* Check if it is trying to share energy */
-            if( !cController.GetEnergyTo().empty() ) {
-                /* Check if it has started to share energy */
-                if(cController.IsSharingEnergy()) {
-                    // LOG << cEPuck.GetId() << " sharing energy target = " << cController.GetEnergyTo() << std::endl;
-                    mapTravelerProviders[cController.GetEnergyTo()] = cEPuck;
-                }
-            }
-        } catch(CARGoSException& ex) {
-            THROW_ARGOSEXCEPTION_NESTED("While casting robot as a worker", ex);
-        }
-    }
+    //     /* Get handle to e-puck entity and controller */
+    //     CEPuckEntity& cEPuck = *any_cast<CEPuckEntity*>(itEpuck->second);
+    //     try {
+    //         CWorker& cController = dynamic_cast<CWorker&>(cEPuck.GetControllableEntity().GetController());
+    //         /* Check if it is trying to share energy */
+    //         if( !cController.GetEnergyTo().empty() ) {
+    //             /* Check if it has started to share energy */
+    //             if(cController.IsSharingEnergy()) {
+    //                 // LOG << cEPuck.GetId() << " sharing energy target = " << cController.GetEnergyTo() << std::endl;
+    //                 mapTravelerProviders[cController.GetEnergyTo()] = cEPuck;
+    //             }
+    //         }
+    //     } catch(CARGoSException& ex) {
+    //         THROW_ARGOSEXCEPTION_NESTED("While casting robot as a worker", ex);
+    //     }
+    // }
     /* Loop chargers to find robots that wishes to transfer energy */
     std::unordered_map<std::string,CEPuckChargerEntity> mapChargerProviders;
     if(m_unTotalChargers > 0) {
@@ -572,15 +674,28 @@ void CExperimentLoopFunctionsNop::PostStep() {
             CEPuckChargerEntity& cEPuck = *any_cast<CEPuckChargerEntity*>(itEpuck->second);
             try {
                 CCharger& cController = dynamic_cast<CCharger&>(cEPuck.GetControllableEntity().GetController());
-                /* Check if it is trying to share energy */
-                if( !cController.GetEnergyTo().empty() ) {
-                    /* Check if it has started to share energy */
-                    if(cController.IsSharingEnergy()) {
-                        LOG << cEPuck.GetId() << " sharing energy target = " << cController.GetEnergyTo() << std::endl;
-                        mapChargerProviders[cController.GetEnergyTo()] = cEPuck;
+                
+                CBatteryEquippedEntity& cBattery = cEPuck.GetBatterySensorEquippedEntity();
+                m_mapCurrentEnergy[cEPuck.GetId()] = cBattery.GetAvailableCharge();
+
+                if(cController.IsSharingEnergy()) {
+                    /* Check if it is trying to share energy */
+                    const std::vector<std::string> &vecEnergyToCh = cController.GetEnergyTo();
+                    if( !vecEnergyToCh.empty() ) {
+                        /* Check if it has started to share energy */
+                        if(cController.IsSharingEnergy()) {
+                            std::string joinedTargets;
+                            for(size_t i = 0; i < vecEnergyToCh.size(); ++i) {
+                                if(i) joinedTargets += ",";
+                                joinedTargets += vecEnergyToCh[i];
+                            }
+                            LOG << cEPuck.GetId() << " sharing energy target(s) = " << joinedTargets << std::endl;
+                            for(const auto &t : vecEnergyToCh) {
+                                mapChargerProviders[t] = cEPuck;
+                            }
+                        }
                     }
                 }
-
             } catch(CARGoSException& ex) {
                 THROW_ARGOSEXCEPTION_NESTED("While casting robot as a charger", ex);
             }
@@ -588,11 +703,11 @@ void CExperimentLoopFunctionsNop::PostStep() {
     }
 
     // Loop provider keys
-    for(const auto& [key, value] : mapTravelerProviders) {
-        LOG << "Energy receiver: " << key << std::endl;
-    }
+    // for(const auto& [key, value] : mapTravelerProviders) {
+    //     LOG << "Energy receiver: " << key << std::endl;
+    // }
     for(const auto& [key, value] : mapChargerProviders) {
-        LOG << "Energy receiver: " << key << std::endl;
+        LOG << "Energy provider: " << key << " from " << value.GetId() << std::endl;
     }
 
     /* Loop workers */
@@ -682,63 +797,39 @@ void CExperimentLoopFunctionsNop::PostStep() {
             /* Transfering energy */
             if(cController.IsCharging()) {
                 Real fTransferRatePerStep = m_fDeltaRecharge;
-                Real fTransferEfficiency = m_fDeltaTransferLoss;
-                // if(mapTravelerProviders.count(cEPuck.GetId())) {
-                //     CEPuckEntity& cProvider = mapTravelerProviders[cEPuck.GetId()];
-                //     CBatteryEquippedEntity& cProviderBattery = cProvider.GetBatterySensorEquippedEntity();
+                Real fTransferEfficiency = m_fDeltaTransferEfficiency;
 
-                //     /* Check the distance between the two robots and whether the provider has started sharing energy */
-                //     Real fDistPair = Distance(cProvider.GetEmbodiedEntity().GetOriginAnchor().Position, cEPuck.GetEmbodiedEntity().GetOriginAnchor().Position);
-                    
-                //     // LOG << "Check if can transfer... " << cProvider.GetId() << " -> " << cEPuck.GetId() << " (dist = " << fDistPair << ")" << std::endl;
-
-                //     if(fDistPair < cController.GetDistToShareEnergy()) {
-                //         LOG << "Transfering energy! " << cProvider.GetId() << " -> " << cEPuck.GetId() << std::endl;
-                //         Real energyDelta = fTransferRatePerStep * fTransferEfficiency;
-                //         Real newChargeProvider, newChargeReceiver;
-                //         Real excessEnergy = 0;
-
-                //         /* Increase receiver energy */
-                //         newChargeReceiver = cBattery.GetAvailableCharge() + energyDelta;
-                //         if(newChargeReceiver > cBattery.GetFullCharge()) {
-                //             cBattery.SetAvailableCharge(cBattery.GetFullCharge());
-                //             excessEnergy = newChargeReceiver - cBattery.GetFullCharge();
-                //             m_fEnergyShared += energyDelta - excessEnergy;
-                //         } else {
-                //             cBattery.SetAvailableCharge(newChargeReceiver);
-                //             m_fEnergyShared += energyDelta;
-                //         }
-
-                //         /* Reduce provider energy */
-                //         if(excessEnergy > 0) {
-                //             newChargeProvider = cProviderBattery.GetAvailableCharge() - energyDelta + excessEnergy;
-                //         } else
-                //             newChargeProvider = cProviderBattery.GetAvailableCharge() - energyDelta;
-
-                //         if(newChargeProvider <= 0)
-                //             cProviderBattery.SetAvailableCharge(0);
-                //         else
-                //             cProviderBattery.SetAvailableCharge(newChargeProvider);
-
-                //     }
-                // } 
-                // else 
                 if(mapChargerProviders.count(cEPuck.GetId())) {
                     CEPuckChargerEntity& cProvider = mapChargerProviders[cEPuck.GetId()];
                     CBatteryEquippedEntity& cProviderBattery = cProvider.GetBatterySensorEquippedEntity();
                     CCharger& cProviderController = dynamic_cast<CCharger&>(cProvider.GetControllableEntity().GetController());
                     /* Check the distance between the two robots and whether the provider has started sharing energy */
-                    Real fDistPair = 100 * Distance(cProvider.GetEmbodiedEntity().GetOriginAnchor().Position, cEPuck.GetEmbodiedEntity().GetOriginAnchor().Position);
+                    // Real fDistPair = 100 * Distance(cProvider.GetEmbodiedEntity().GetOriginAnchor().Position, cEPuck.GetEmbodiedEntity().GetOriginAnchor().Position);
                     
                     // LOG << "Check if can transfer... " << cProvider.GetId() << " -> " << cEPuck.GetId() << " (dist = " << fDistPair << " < " << cProviderController.GetDistToShareEnergy() << ")" << std::endl;
 
-                    if(fDistPair < cProviderController.GetDistToShareEnergy()) {
+                    // if(fDistPair < cProviderController.GetDistToShareEnergy()) {
                         LOG << "Transfering energy! " << cProvider.GetId() << " -> " << cEPuck.GetId() << std::endl;
-                        Real energyDelta = fTransferRatePerStep * (1 - fTransferEfficiency);
-                        // LOG << "Energy delta: " << energyDelta << std::endl;
-                        // LOG << "fTransferRatePerStep" << fTransferRatePerStep << std::endl;
+                        Real energyDelta = fTransferRatePerStep;
                         Real newChargeProvider, newChargeReceiver;
                         Real excessEnergy = 0;
+
+                        /* Check if charger has enough energy to return to the base region */
+                        Real energyToReturn = cProviderController.GetEnergyToCharger() * m_fFullChargeCharger;
+                        if(m_mapCurrentEnergy[cProvider.GetId()] > energyToReturn + energyDelta * (1 / fTransferEfficiency) * m_unTotalWorkers) {
+                            // LOG << "EnergyToReturn: " << energyToReturn << ", energyDelta*workers: " << energyDelta * m_unTotalWorkers << std::endl;
+                            // LOG << "Charger has enough energy to return to the base region." << std::endl;
+                            // LOG << "Available charge: " << cProviderBattery.GetAvailableCharge() << std::endl;
+                        } else {
+                            Real oldEnergyDelta = energyDelta;
+                            // LOG << "EnergyToReturn: " << energyToReturn << ", energyDelta*workers: " << energyDelta * m_unTotalWorkers << std::endl;
+                            // LOG << "Charger does not have enough energy to return to the base region." << std::endl;
+                            energyDelta = (m_mapCurrentEnergy[cProvider.GetId()] - energyToReturn) / m_unTotalWorkers * fTransferEfficiency;
+                            // LOG << "Reducing energy delta from: " << oldEnergyDelta << " to: " << energyDelta << std::endl;
+                            // LOG << "Available charge: " << cProviderBattery.GetAvailableCharge() << std::endl;
+                        }
+
+                        Real totalEnergy = energyDelta / fTransferEfficiency;
 
                         /* Increase receiver energy */
                         newChargeReceiver = cBattery.GetAvailableCharge() + energyDelta;
@@ -746,30 +837,27 @@ void CExperimentLoopFunctionsNop::PostStep() {
                             cBattery.SetAvailableCharge(cBattery.GetFullCharge());
                             excessEnergy = newChargeReceiver - cBattery.GetFullCharge();
                             m_fEnergyShared += energyDelta - excessEnergy;
-                            m_fEnergyLost += fTransferRatePerStep * fTransferEfficiency;
+                            m_fEnergyLost += totalEnergy - energyDelta;
                         } else {
                             cBattery.SetAvailableCharge(newChargeReceiver);
                             m_fEnergyShared += energyDelta;
-                            m_fEnergyLost += fTransferRatePerStep * fTransferEfficiency;
+                            m_fEnergyLost += totalEnergy - energyDelta;
                         }
 
                         /* Reduce provider energy */
                         if(excessEnergy > 0) {
-                            newChargeProvider = cProviderBattery.GetAvailableCharge() - fTransferRatePerStep + excessEnergy;
+                            newChargeProvider = cProviderBattery.GetAvailableCharge() - totalEnergy + excessEnergy;
                         } else
-                            newChargeProvider = cProviderBattery.GetAvailableCharge() - fTransferRatePerStep;
+                            newChargeProvider = cProviderBattery.GetAvailableCharge() - totalEnergy;
 
                         if(newChargeProvider <= 0)
                             cProviderBattery.SetAvailableCharge(0);
                         else
                             cProviderBattery.SetAvailableCharge(newChargeProvider);
+                    // }
 
-                        // cController.SetLED(CColor::MAGENTA);
-                        // cProviderController.SetLED(CColor::MAGENTA);
-                    } else {
-                        // cController.SetLED(CColor::GREEN);
-                        // cProviderController.SetLED(CColor::BLUE);
-                    }
+                    LOG << "Post Transfer - Provider: " << cProvider.GetId() << " Charge: " << cProviderBattery.GetAvailableCharge()
+                        << " | Receiver: " << cEPuck.GetId() << " Charge: " << cBattery.GetAvailableCharge() << std::endl;
                 }
             }
             
@@ -895,6 +983,11 @@ void CExperimentLoopFunctionsNop::PostStep() {
     */
 
     if(m_bLogging) {
+
+        /* Log every 10 timesteps */
+        if(GetSpace().GetSimulationClock() % 10 != 0)
+            return;
+
         /* Create new node for this timestep */
         TimeStep tData;
         tData.set_time(GetSpace().GetSimulationClock());
@@ -1062,13 +1155,13 @@ void CExperimentLoopFunctionsNop::PostStep() {
         m_cOutput.close();
     }
 
-    /* Grab frame */
-    if(m_bFrameGrabbing) {
-        CQTOpenGLRender& render = dynamic_cast<CQTOpenGLRender&>(GetSimulator().GetVisualization());
-        CQTOpenGLWidget& widget = render.GetMainWindow().GetOpenGLWidget();
-        widget.SetCamera(m_unCameraIndex);
-        widget.SetGrabFrame(m_bFrameGrabbing);
-    }
+    // /* Grab frame every 10 timesteps */
+    // if (GetSpace().GetSimulationClock() % 10 == 0 && m_bFrameGrabbing) {
+    //     CQTOpenGLRender& render = dynamic_cast<CQTOpenGLRender&>(GetSimulator().GetVisualization());
+    //     CQTOpenGLWidget& widget = render.GetMainWindow().GetOpenGLWidget();
+    //     widget.SetCamera(m_unCameraIndex);
+    //     widget.SetGrabFrame(m_bFrameGrabbing);
+    // }
 
     /* Terminate simulation time limit is reached */
     if(m_bTaskExists) {
@@ -1078,14 +1171,14 @@ void CExperimentLoopFunctionsNop::PostStep() {
                 m_cOutput.open(m_strSummaryFilePath.c_str(), std::ios_base::app);
                 m_cOutput << "\n";
                 m_cOutput << "FINISH_TIME," << final_time << "\n";
-                m_cOutput << "POINTS SCORED," << (int)m_unPointsObtained << "\n";
+                m_cOutput << "POINTS SCORED," << m_unPointsObtained << "\n";
                 m_cOutput << "DEPLETED WORKERS," << (int)m_setDepletedWorkers.size() << "\n";
                 m_cOutput << "DEPLETED CHARGERS," << (int)m_setDepletedChargers.size() << "\n";
                 m_cOutput << "ENERGY LOST, " << m_fEnergyLost << "\n";
                 // m_cOutput << "TASK_STATUS,FINISHED" << "\n";
                 m_cOutput.close();
                 std::cout << "[LOG] Reached time limit!" << std::endl;
-                std::cout << "[LOG] Score: " << (int)m_unPointsObtained << std::endl;
+                std::cout << "[LOG] Score: " << m_unPointsObtained << std::endl;
                 // std::cout << "[LOG] Mission time: " << final_time << std::endl;
                 // std::cout << "[LOG] All tasks completed" << std::endl;
                 std::cout << "[LOG] TERMINATING SIMULATION ..." << std::endl;
@@ -1097,11 +1190,11 @@ void CExperimentLoopFunctionsNop::PostStep() {
                 m_cOutput.open(m_strSummaryFilePath.c_str(), std::ios_base::app);
                 m_cOutput << "\n";
                 m_cOutput << "FINISH_TIME," << final_time << "\n";
-                m_cOutput << "POINTS SCORED," << (int)m_unPointsObtained << "\n";
+                m_cOutput << "POINTS SCORED," << m_unPointsObtained << "\n";
                 // m_cOutput << "TASK_STATUS,FINISHED" << "\n";
                 m_cOutput.close();
                 std::cout << "[LOG] Tasks completed!" << std::endl;
-                std::cout << "[LOG] Score: " << (int)m_unPointsObtained << std::endl;
+                std::cout << "[LOG] Score: " << m_unPointsObtained << std::endl;
                 // std::cout << "[LOG] Mission time: " << final_time << std::endl;
                 // std::cout << "[LOG] All tasks completed" << std::endl;
                 std::cout << "[LOG] TERMINATING SIMULATION ..." << std::endl;
@@ -1115,11 +1208,11 @@ void CExperimentLoopFunctionsNop::PostStep() {
         m_cOutput.open(m_strSummaryFilePath.c_str(), std::ios_base::app);
         m_cOutput << "\n";
         m_cOutput << "FINISH_TIME," << final_time << "\n";
-        m_cOutput << "POINTS SCORED," << (int)m_unPointsObtained << "\n";
+        m_cOutput << "POINTS SCORED," << m_unPointsObtained << "\n";
         // m_cOutput << "TASK_STATUS,FINISHED" << "\n";
         m_cOutput.close();
         std::cout << "[LOG] Reached time limit!" << std::endl;
-        std::cout << "[LOG] Score: " << (int)m_unPointsObtained << std::endl;
+        std::cout << "[LOG] Score: " << m_unPointsObtained << std::endl;
         // std::cout << "[LOG] Mission time: " << final_time << std::endl;
         // std::cout << "[LOG] All tasks completed" << std::endl;
         std::cout << "[LOG] TERMINATING SIMULATION ..." << std::endl;
@@ -1127,9 +1220,22 @@ void CExperimentLoopFunctionsNop::PostStep() {
     }
 }
 
+/****************************************/
+/****************************************/
+
+std::unordered_map<std::string, RobotPosition> CExperimentLoopFunctionsNop::GetRobotPos() const {
+    return robotPos;
+}
+
+/****************************************/
+/****************************************/
+
 // std::vector<CVector2> CExperimentLoopFunctionsNop::GetArenaSize() const {
 //     return m_vecArenaSize;
 // }
+
+/****************************************/
+/****************************************/
 
 bool CExperimentLoopFunctionsNop::IsDrawRobotLabel() const {
     return m_bDrawRobotLabel;
@@ -1397,6 +1503,10 @@ void CExperimentLoopFunctionsNop::InitLoggingEnergy() {
     // m_cOutput << "TOTAL_TASKS," << (int)m_unTotalTasks << "\n";
     // m_cOutput << "TASK_DEMAND," << (int)m_unTaskDemand << "\n";
 
+    m_cOutput << "TAU," << (int)(m_fFullChargeCharger/m_fFullChargeWorker) << "\n";
+    m_cOutput << "ETA," << m_fDeltaWork / CSimulator::GetInstance().GetPhysicsEngine(PHYSICS_ENGINE_NAME).GetSimulationClockTick() << "\n";
+    m_cOutput << "DELTA_COMMUTE," << m_fCommuteDuration << "\n";
+
     m_cOutput.close();
 }
 
@@ -1477,22 +1587,18 @@ void CExperimentLoopFunctionsNop::InitRobots() {
     UInt32 unNumWorkers;
     GetNodeAttributeOrDefault(cEPuckNode, "controller", m_strWorkerType, ToString("worker"));
     GetNodeAttributeOrDefault(cEPuckNode, "num_robots", unNumWorkers, (UInt32)10);
+    m_unTotalWorkers = unNumWorkers;
 
-    // if(m_strWorkerType == "worker") {
-        cMin = CVector2(m_cFixedChargePos.GetX() - m_fFixedChargeAreaSideX/2,
-                        m_cFixedChargePos.GetY() - m_fFixedChargeAreaSideY/2);
-        cMax = CVector2(m_cFixedChargePos.GetX() + m_fFixedChargeAreaSideX/2,
-                        m_cFixedChargePos.GetY() + m_fFixedChargeAreaSideY/2);
-    // } else if(m_strWorkerType == "worker_mc") {
-    //     LOG << "minX " << m_cTaskPos.GetX() << std::endl;
-    //     LOG << "sideX " << m_fTaskAreaSideX << std::endl;
-    //     cMin = CVector2(m_cTaskPos.GetX() - m_fTaskAreaSideX/2.0,
-    //                     m_cTaskPos.GetY() - m_fTaskAreaSideY/2.0);
-    //     cMax = CVector2(m_cTaskPos.GetX() + m_fTaskAreaSideX/2.0,
-    //                     m_cTaskPos.GetY() + m_fTaskAreaSideY/2.0);
-    // } else {
-    //     LOGERR << "Unknown worker type: " << m_strWorkerType << std::endl;
-    // }
+    /* Place e-puck_charger */
+    UInt32 unNumChargers;
+    GetNodeAttributeOrDefault(cEPuckChargerNode, "controller", m_strChargerType, ToString("charger"));
+    GetNodeAttributeOrDefault(cEPuckChargerNode, "num_robots", unNumChargers, (UInt32)0);
+    m_unTotalChargers = unNumChargers;
+
+    cMin = CVector2(m_cFixedChargePos.GetX() - m_fFixedChargeAreaSideX/2,
+                    m_cFixedChargePos.GetY() - m_fFixedChargeAreaSideY/2);
+    cMax = CVector2(m_cFixedChargePos.GetX() + m_fFixedChargeAreaSideX/2,
+                    m_cFixedChargePos.GetY() + m_fFixedChargeAreaSideY/2);
 
     LOG << "cMin " << cMin << std::endl;
     LOG << "cMax " << cMax << std::endl;
@@ -1500,17 +1606,11 @@ void CExperimentLoopFunctionsNop::InitRobots() {
     LOG << "unNumWorkers " << unNumWorkers << std::endl;
 
     PlaceRobots(cMin, cMax, unNumWorkers, m_strWorkerType);
-    m_unTotalWorkers = unNumWorkers;
 
-    /* Place e-puck_charger */
-    UInt32 unNumChargers;
-    GetNodeAttributeOrDefault(cEPuckChargerNode, "controller", m_strChargerType, ToString("charger"));
-    GetNodeAttributeOrDefault(cEPuckChargerNode, "num_robots", unNumChargers, (UInt32)0);
     LOG << "controller " << m_strChargerType << std::endl;
     LOG << "unNumChargers " << unNumChargers << std::endl;
 
     PlaceRobots(cMin, cMax, unNumChargers, m_strChargerType);
-    m_unTotalChargers = unNumChargers;
 
     LOG << "[LOG] Added robots" << std::endl;
 
@@ -1545,71 +1645,71 @@ void CExperimentLoopFunctionsNop::InitRobots() {
 /****************************************/
 /****************************************/
 
-void CExperimentLoopFunctionsNop::InitTasks() {
-    /*
-    * Initialize tasks
-    */
+// void CExperimentLoopFunctionsNop::InitTasks() {
+//     /*
+//     * Initialize tasks
+//     */
 
-    LOG << "[LOG] Adding tasks..." << std::endl;
+//     LOG << "[LOG] Adding tasks..." << std::endl;
 
-    /* ID counts */
-    UInt32 m_unNextTaskId = 1;
-    /* Meta data */
-    size_t m_unTotalTasks = 0;
-    UInt32 m_unTaskDemand = 0; 
-    /* Get the teams node */
-    TConfigurationNode& ts_tree = GetNode(config, "tasks");
-    /* Go through the nodes (tasks) */
-    TConfigurationNodeIterator itDistr;
-    for(itDistr = itDistr.begin(&ts_tree);
-        itDistr != itDistr.end();
-        ++itDistr) {
+//     /* ID counts */
+//     UInt32 m_unNextTaskId = 1;
+//     /* Meta data */
+//     size_t m_unTotalTasks = 0;
+//     UInt32 m_unTaskDemand = 0; 
+//     /* Get the teams node */
+//     TConfigurationNode& ts_tree = GetNode(config, "tasks");
+//     /* Go through the nodes (tasks) */
+//     TConfigurationNodeIterator itDistr;
+//     for(itDistr = itDistr.begin(&ts_tree);
+//         itDistr != itDistr.end();
+//         ++itDistr) {
 
-        m_bTaskExists = true;
-        m_bTaskComplete = false;
+//         m_bTaskExists = true;
+//         m_bTaskComplete = false;
 
-        /* Get current node (task) */
-        TConfigurationNode& tDistr = *itDistr;
-        /* Task center */
-        CVector2 cCenter;
-        GetNodeAttribute(tDistr, "position", cCenter);
-        /* Task radius */
-        Real fRadius;
-        GetNodeAttribute(tDistr, "radius", fRadius);
-        /* Task Height */
-        Real fHeight;
-        GetNodeAttribute(tDistr, "height", fHeight);
-        /* Task demand */
-        UInt32 unDemand;
-        GetNodeAttribute(tDistr, "task_demand", unDemand);
-        /* Minimum robot constraint */
-        UInt32 unMinRobotNum;
-        GetNodeAttribute(tDistr, "minimum_robot_num", unMinRobotNum);
-        /* Maximum robot constraint */
-        UInt32 unMaxRobotNum;
-        GetNodeAttribute(tDistr, "maximum_robot_num", unMaxRobotNum);
+//         /* Get current node (task) */
+//         TConfigurationNode& tDistr = *itDistr;
+//         /* Task center */
+//         CVector2 cCenter;
+//         GetNodeAttribute(tDistr, "position", cCenter);
+//         /* Task radius */
+//         Real fRadius;
+//         GetNodeAttribute(tDistr, "radius", fRadius);
+//         /* Task Height */
+//         Real fHeight;
+//         GetNodeAttribute(tDistr, "height", fHeight);
+//         /* Task demand */
+//         UInt32 unDemand;
+//         GetNodeAttribute(tDistr, "task_demand", unDemand);
+//         /* Minimum robot constraint */
+//         UInt32 unMinRobotNum;
+//         GetNodeAttribute(tDistr, "minimum_robot_num", unMinRobotNum);
+//         /* Maximum robot constraint */
+//         UInt32 unMaxRobotNum;
+//         GetNodeAttribute(tDistr, "maximum_robot_num", unMaxRobotNum);
         
-        /* Place Tasks */
-        // PlaceTask(cCenter, fRadius, unDemand, unMinRobotNum, unMaxRobotNum, m_unNextTaskId);
-        PlaceCircleTask(cCenter, fRadius, fHeight, unDemand, unMinRobotNum, unMaxRobotNum, m_unNextTaskId);
+//         /* Place Tasks */
+//         // PlaceTask(cCenter, fRadius, unDemand, unMinRobotNum, unMaxRobotNum, m_unNextTaskId);
+//         PlaceCircleTask(cCenter, fRadius, fHeight, unDemand, unMinRobotNum, unMaxRobotNum, m_unNextTaskId);
 
-        /* Update task count */
-        m_unNextTaskId++;
+//         /* Update task count */
+//         m_unNextTaskId++;
 
-        m_unTotalTasks++;
-        m_unTaskDemand += unDemand;
-    }
+//         m_unTotalTasks++;
+//         m_unTaskDemand += unDemand;
+//     }
 
-    if(m_bLogging) {
-        /* Write to file */
-        m_cOutput.open(m_strSummaryFilePath.c_str(), std::ios_base::app);
-        m_cOutput << "TOTAL_TASKS," << (int)m_unTotalTasks << "\n";
-        m_cOutput << "TASK_DEMAND," << (int)m_unTaskDemand << "\n";
-        m_cOutput.close();
-    }
+//     if(m_bLogging) {
+//         /* Write to file */
+//         m_cOutput.open(m_strSummaryFilePath.c_str(), std::ios_base::app);
+//         m_cOutput << "TOTAL_TASKS," << (int)m_unTotalTasks << "\n";
+//         m_cOutput << "TASK_DEMAND," << (int)m_unTaskDemand << "\n";
+//         m_cOutput.close();
+//     }
 
-    LOG << "[LOG] Added tasks" << std::endl;
-}
+//     LOG << "[LOG] Added tasks" << std::endl;
+// }
 
 /****************************************/
 /****************************************/
@@ -1745,7 +1845,7 @@ void CExperimentLoopFunctionsNop::InitTask() {
     UInt32 unTotalTasks = 1;
     UInt32 unInitTasks = 1;
     m_unTotalTasks = unTotalTasks;
-    m_unTaskDemand = 0; 
+    // m_unTaskDemand = 0; 
     m_unPointsObtained = 0;
 
     m_bTaskExists = true;
@@ -1764,7 +1864,7 @@ void CExperimentLoopFunctionsNop::InitTask() {
     // UInt32 unMaxRobotNum = 100;
 
     m_unTotalTasks++;
-    m_unTaskDemand += unDemand;
+    // m_unTaskDemand += unDemand;
 
     // // LOG << "Arena radius " << m_fArenaRadius << std::endl;
     LOG << "Task pos " << m_cTaskPos.GetX() << ", " << m_cTaskPos.GetY() << std::endl;
@@ -1883,7 +1983,44 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
             strController = WO_CONTROLLER;
         }
 
+        /* Pre-compute variables for energy threshold calculation */
+        Real tickDuration = 1.0f / CSimulator::GetInstance().GetPhysicsEngine(PHYSICS_ENGINE_NAME).GetSimulationClockTick();
+        double c_max = m_fFullChargeWorker;
+        double delta_m_commute = m_fCommuteDuration;
+        double nu_w_work = m_fDeltaWork * tickDuration;
+        double nu_m_move = m_fDeltaPosWorker * tickDuration;
+        double nu_min = m_fDeltaTime * tickDuration;
+        double nu_m_charge = m_fDeltaRecharge * tickDuration;
+        double nu_m_transfer = m_fDeltaRecharge * tickDuration;
+        double xi = m_fDeltaTransferEfficiency;
+        double tau = m_fFullChargeCharger / m_fFullChargeWorker;
+        double zeta = un_robots / m_unTotalChargers;
+        if(str_controller_type == "charger") {
+            zeta = m_unTotalWorkers / un_robots;
+        }
+
+        // print all variables
+        LOG << "c_max: " << c_max << std::endl;
+        LOG << "delta_m_commute: " << delta_m_commute << std::endl;
+        LOG << "nu_w_work: " << nu_w_work << std::endl;
+        LOG << "nu_m_move: " << nu_m_move << std::endl;
+        LOG << "nu_min: " << nu_min << std::endl;
+        LOG << "nu_m_charge: " << nu_m_charge << std::endl;
+        LOG << "nu_m_transfer: " << nu_m_transfer << std::endl;
+        LOG << "xi: " << xi << std::endl;
+        LOG << "tau: " << tau << std::endl;
+        LOG << "zeta: " << zeta << std::endl;
+
+        /* Y-axis shift for the work positions */
+        std::vector<Real> y_shift;
+        Real step = m_fFixedChargeAreaSideY / (un_robots + 1);
+        for (int i = 0; i < un_robots; ++i) {
+            Real v = -m_fFixedChargeAreaSideY/2 + (i+1) * step;
+            y_shift.push_back(-v);  
+        }
+
         if(str_controller_type == "worker" || str_controller_type == "worker_mc") {
+
             CEPuckEntity* pcEP;
             /* For each robot worker */
             for(size_t i = 0; i < un_robots; ++i) {
@@ -1904,9 +2041,9 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 /* Set custom battery model */
                 CBatteryEquippedEntity& cBattery = pcEP->GetBatterySensorEquippedEntity();
                 cBattery.SetFullCharge(m_fFullChargeWorker);
-                // Find a random number between the two values in m_fStartChargeWorker first and second
-                Real fEnergyVariation = m_pcRNG->Uniform(CRange<Real>(m_fStartChargeWorker.first, m_fStartChargeWorker.second));
-                cBattery.SetAvailableCharge(fEnergyVariation);
+                // // Find a random number between the two values in m_fStartChargeWorker first and second
+                // Real fEnergyVariation = m_pcRNG->Uniform(CRange<Real>(m_fStartChargeWorker.first, m_fStartChargeWorker.second));
+                // cBattery.SetAvailableCharge(fEnergyVariation);
                 // if(m_strBatteryDischargeModel == "fixed_time_motion") {
                 //     CBatteryDischargeModelFixedTimeMotion* pcDischargeModel = new CBatteryDischargeModelFixedTimeMotion(m_fDeltaTime, m_fDeltaPosWorker);
                 //     cBattery.SetDischargeModel(pcDischargeModel);
@@ -1919,26 +2056,39 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
 
                 CWorker* cfController = dynamic_cast<CWorker*>(&pcEP->GetControllableEntity().GetController());
                 cfController->SetMoveDischargeRate(m_fDeltaPosWorker, m_fFullChargeWorker);
+                cfController->SetWorkDischargeRate(m_fDeltaWork, m_fFullChargeWorker);
+                cfController->SetChargingRegion(m_cFixedChargePos + CVector2(0, y_shift[i]));
 
-                /* Try to place it in the arena */
-                unTrials = 0;
-                bool bDone;
-                do {
-                    /* Choose a random position */
-                    ++unTrials;
-                    cEPPos.Set(m_pcRNG->Uniform(cXRange),
-                            m_pcRNG->Uniform(cYRange),
-                            0.0f);      
-                    cEPRot.FromAngleAxis(m_pcRNG->Uniform(CRadians::UNSIGNED_RANGE),
-                                        CVector3::Z);
-                    bDone = MoveEntity(pcEP->GetEmbodiedEntity(), cEPPos, cEPRot);
+                CVector2 robotTaskPos = m_cTaskPos + CVector2(0, y_shift[i]);
+                cfController->SetWorkingRegion(robotTaskPos);
 
-                } while(!bDone && unTrials <= MAX_PLACE_TRIALS);
-                if(!bDone) {
-                    THROW_ARGOSEXCEPTION("Can't place " << cEPId.str());
-                }
+                /* Set low energy threshold */
+                auto result = calculate_model_variables(c_max, delta_m_commute, nu_w_work, nu_m_move,
+                                                        nu_min, nu_m_charge, nu_m_transfer,
+                                                        xi, tau, zeta);
+                Real lowThreshold = result["delta_w_rest"] * nu_min;
+                Real lowThresholdNormalized = (lowThreshold + 0.1) / m_fFullChargeWorker; // hard-coded low energy margin of 0.1 unit
+                LOG << "Low energy threshold for robot " << cEPId.str() << ": " << lowThreshold << " (norm: " << lowThresholdNormalized << ")" << std::endl;
+                cfController->SetLowEnergyThreshold(lowThresholdNormalized);
+
+                /* Set high energy threshold */
+                Real highThresholdNormalized = (result["c_w_charged"] - 10) / m_fFullChargeWorker; // hard-coded high energy margin of 10 unit
+                LOG << "High energy threshold for robot " << cEPId.str() << ": " << result["c_w_charged"] << " (norm: " << highThresholdNormalized << ")" << std::endl;
+                cfController->SetHighEnergyThreshold(highThresholdNormalized);
+
+                /* Set initial charge */
+                cBattery.SetAvailableCharge(result["c_w_charged"]);
+
+                /* Reposition the robot */
+                cEPPos.Set(robotTaskPos.GetX(), 
+                            robotTaskPos.GetY(), 
+                            0.0f);
+                cEPRot.FromAngleAxis(m_pcRNG->Uniform(CRadians::UNSIGNED_RANGE),
+                                    CVector3::Z);
+                MoveEntity(pcEP->GetEmbodiedEntity(), cEPPos, cEPRot);
             }
         } else if(str_controller_type == "charger") {
+
             CEPuckChargerEntity* pcEP;
 
             /* For each charger */
@@ -1976,23 +2126,46 @@ void CExperimentLoopFunctionsNop::PlaceRobots(const CVector2& c_min,
                 CCharger* cfController = dynamic_cast<CCharger*>(&pcEP->GetControllableEntity().GetController());
                 cfController->SetMoveDischargeRate(m_fDeltaPosCharger, m_fFullChargeWorker, m_fFullChargeCharger);
 
-                /* Try to place it in the arena */
-                unTrials = 0;
-                bool bDone;
-                do {
-                    /* Choose a random position */
-                    ++unTrials;
-                    cEPPos.Set(m_pcRNG->Uniform(cXRange),
-                            m_pcRNG->Uniform(cYRange),
-                            0.0f);      
-                    cEPRot.FromAngleAxis(m_pcRNG->Uniform(CRadians::UNSIGNED_RANGE),
-                                        CVector3::Z);
-                    bDone = MoveEntity(pcEP->GetEmbodiedEntity(), cEPPos, cEPRot);
+                CVector2 robotChargePos = m_cFixedChargePos + CVector2(0.1, y_shift[i]);
+                cfController->SetChargingRegion(robotChargePos);
 
-                } while(!bDone && unTrials <= MAX_PLACE_TRIALS);
-                if(!bDone) {
-                    THROW_ARGOSEXCEPTION("Can't place " << cEPId.str());
+                CVector2 robotTaskPos = m_cTaskPos + CVector2(-0.1, y_shift[i]);
+                cfController->SetWorkingRegion(robotTaskPos);
+
+                /* Set time to rest at the base station */
+                auto result = calculate_model_variables(c_max, delta_m_commute, nu_w_work, nu_m_move,
+                                                        nu_min, nu_m_charge, nu_m_transfer,
+                                                        xi, tau, zeta);
+                // convert from seconds to timesteps and round to nearest integer
+                UInt32 unDurationToRest = static_cast<UInt32>((std::lround(result["delta_m_rest"]) * tickDuration));
+                LOG << "Duration to rest at base for charger: " << result["delta_m_rest"] << " seconds = " << unDurationToRest << " steps." << std::endl;
+                cfController->SetTimestepToRestAtBase(unDurationToRest);
+                // convert from seconds to timesteps and round to nearest integer
+                UInt32 unDurationToCharge = static_cast<UInt32>((std::lround(result["delta_m_charge"] + 1) * tickDuration));
+                LOG << "Duration to charge at base for charger: " << result["delta_m_charge"] << " seconds = " << unDurationToCharge << " steps." << std::endl;
+                cfController->SetTimestepToChargeAtBase(unDurationToCharge);
+
+                /* Set initial charge */
+                cBattery.SetAvailableCharge(result["c_m_return"] + 5); // hard-coded high energy margin of 5 unit
+                LOG << "Initial charge for charger " << cEPId.str() << ": " << result["c_m_return"] << std::endl;
+
+                /* Set assigned workers to share energy */
+                std::vector<std::string> vecAssignedWorkers;
+                for(size_t j = 0; j < m_unTotalWorkers/un_robots; ++j) {
+                    std::ostringstream cWorkerId;
+                    cWorkerId << "F" << (i * (m_unTotalWorkers/un_robots) + j + 1);                    
+                    vecAssignedWorkers.push_back(cWorkerId.str());
+                    LOG << "Charger " << cEPId.str() << " assigned to worker " << cWorkerId.str() << std::endl;
                 }
+                cfController->SetEnergyTo(vecAssignedWorkers);
+
+                /* Reposition the robot */
+                cEPPos.Set(robotTaskPos.GetX(), 
+                            robotTaskPos.GetY(), 
+                            0.0f);
+                cEPRot.FromAngleAxis(m_pcRNG->Uniform(CRadians::UNSIGNED_RANGE),
+                                    CVector3::Z);
+                MoveEntity(pcEP->GetEmbodiedEntity(), cEPPos, cEPRot);
             }
         }
 

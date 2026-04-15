@@ -298,17 +298,17 @@ class TimeStep final :
   void _internal_set_time(uint64_t value);
   public:
 
-  // optional uint64 points = 4;
+  // optional double points = 4;
   bool has_points() const;
   private:
   bool _internal_has_points() const;
   public:
   void clear_points();
-  uint64_t points() const;
-  void set_points(uint64_t value);
+  double points() const;
+  void set_points(double value);
   private:
-  uint64_t _internal_points() const;
-  void _internal_set_points(uint64_t value);
+  double _internal_points() const;
+  void _internal_set_points(double value);
   public:
 
   // optional double totalEnergy = 5;
@@ -415,7 +415,7 @@ class TimeStep final :
     ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::Robot > robots_;
     ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::Task > tasks_;
     uint64_t time_;
-    uint64_t points_;
+    double points_;
     double totalenergy_;
     double workenergy_;
     double connectorenergy_;
@@ -1330,13 +1330,13 @@ class Task final :
       ::Position* position);
   ::Position* unsafe_arena_release_position();
 
-  // uint64 demand = 2;
+  // double demand = 2;
   void clear_demand();
-  uint64_t demand() const;
-  void set_demand(uint64_t value);
+  double demand() const;
+  void set_demand(double value);
   private:
-  uint64_t _internal_demand() const;
-  void _internal_set_demand(uint64_t value);
+  double _internal_demand() const;
+  void _internal_set_demand(double value);
   public:
 
   // optional uint64 requiredRobots = 3;
@@ -1390,7 +1390,7 @@ class Task final :
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr name_;
     ::Position* position_;
-    uint64_t demand_;
+    double demand_;
     uint64_t requiredrobots_;
     uint64_t currentrobots_;
     double radius_;
@@ -1509,7 +1509,7 @@ TimeStep::tasks() const {
   return _impl_.tasks_;
 }
 
-// optional uint64 points = 4;
+// optional double points = 4;
 inline bool TimeStep::_internal_has_points() const {
   bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
   return value;
@@ -1518,21 +1518,21 @@ inline bool TimeStep::has_points() const {
   return _internal_has_points();
 }
 inline void TimeStep::clear_points() {
-  _impl_.points_ = uint64_t{0u};
+  _impl_.points_ = 0;
   _impl_._has_bits_[0] &= ~0x00000001u;
 }
-inline uint64_t TimeStep::_internal_points() const {
+inline double TimeStep::_internal_points() const {
   return _impl_.points_;
 }
-inline uint64_t TimeStep::points() const {
+inline double TimeStep::points() const {
   // @@protoc_insertion_point(field_get:TimeStep.points)
   return _internal_points();
 }
-inline void TimeStep::_internal_set_points(uint64_t value) {
+inline void TimeStep::_internal_set_points(double value) {
   _impl_._has_bits_[0] |= 0x00000001u;
   _impl_.points_ = value;
 }
-inline void TimeStep::set_points(uint64_t value) {
+inline void TimeStep::set_points(double value) {
   _internal_set_points(value);
   // @@protoc_insertion_point(field_set:TimeStep.points)
 }
@@ -2453,22 +2453,22 @@ inline void Task::set_allocated_name(std::string* name) {
   // @@protoc_insertion_point(field_set_allocated:Task.name)
 }
 
-// uint64 demand = 2;
+// double demand = 2;
 inline void Task::clear_demand() {
-  _impl_.demand_ = uint64_t{0u};
+  _impl_.demand_ = 0;
 }
-inline uint64_t Task::_internal_demand() const {
+inline double Task::_internal_demand() const {
   return _impl_.demand_;
 }
-inline uint64_t Task::demand() const {
+inline double Task::demand() const {
   // @@protoc_insertion_point(field_get:Task.demand)
   return _internal_demand();
 }
-inline void Task::_internal_set_demand(uint64_t value) {
+inline void Task::_internal_set_demand(double value) {
   
   _impl_.demand_ = value;
 }
-inline void Task::set_demand(uint64_t value) {
+inline void Task::set_demand(double value) {
   _internal_set_demand(value);
   // @@protoc_insertion_point(field_set:Task.demand)
 }

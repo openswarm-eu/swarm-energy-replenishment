@@ -183,6 +183,16 @@ public:
     */
     virtual Real GetCurrentEnergy() const;
 
+    /* 
+    * Set low energy threshold
+    */
+    virtual void SetLowEnergyThreshold(Real f_threshold);
+
+    /* 
+    * Set high energy threshold
+    */
+    virtual void SetHighEnergyThreshold(Real f_threshold);
+
     /*
     * Returns true if the robot is moving
     */
@@ -198,6 +208,16 @@ public:
     */
     virtual bool IsSharingEnergy() const;
 
+    /* 
+    * Set charging region position
+    */
+    virtual void SetChargingRegion(const CVector2& c_pos);
+
+    /* 
+    * Set working region position
+    */
+    virtual void SetWorkingRegion(const CVector2& c_pos);
+
     /*
     * Get the ID of the robot it is sharing energy to
     */
@@ -209,9 +229,14 @@ public:
     virtual Real GetDistToShareEnergy() const;
 
     /* 
-    * Set energy discharge rates
+    * Set energy discharge rates for moving
     */
     virtual void SetMoveDischargeRate(Real fDeltaPos, Real fMaxCapacity);
+
+    /*
+    * Set energy discharge rates for working
+    */
+    virtual void SetWorkDischargeRate(Real fDeltaWork, Real fMaxCapacity);
 
 protected:
 
@@ -342,6 +367,9 @@ protected:
     bool bCharging;
     // static constexpr UInt8 chargeAreaID = 1; // Team ID of the charging area (hard-coded to travel to team 1)
 
+    CVector2 cChargingPosition;
+    CVector2 cWorkingPosition;
+
     /* Sharing energy */
     bool bSharingEnergy;
     bool bRequestingEnergy;
@@ -354,6 +382,7 @@ protected:
 
     /* Energy discharge rates */
     Real m_fDeltaPos;
+    Real m_fDeltaWork;
     Real m_fDistToMC; // Distance to the mobile charger (used in the follower state) in cm
     Real m_fDistToCharger;
     Real m_fDesiredAngleOffset;

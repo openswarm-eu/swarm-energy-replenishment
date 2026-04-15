@@ -116,8 +116,8 @@ void CCharger::Init(TConfigurationNode& t_node) {
         GetNodeAttribute(GetNode(t_node, "SCT"), "path", m_strSCTPath);
 
         /* Energy */
-        GetNodeAttribute(GetNode(t_node, "energy"), "low_thres", fEnergyLowThres);
-        GetNodeAttribute(GetNode(t_node, "energy"), "high_thres", fEnergyHighThres);
+        // GetNodeAttribute(GetNode(t_node, "energy"), "low_thres", fEnergyLowThres);
+        // GetNodeAttribute(GetNode(t_node, "energy"), "high_thres", fEnergyHighThres);
         GetNodeAttribute(GetNode(t_node, "energy"), "share_dist", fTargetDistSE);
 
     }
@@ -131,10 +131,10 @@ void CCharger::Init(TConfigurationNode& t_node) {
     currentMoveType = MoveType::MOVE_TO_CHARGE;
     bMoving = false;
     bCharging = false;
-    bSharingEnergy = false;
+    bSharingEnergy = bPrevSharingEnergy = false;
     bRequestingEnergy = false;
     strEnergyFrom = "";
-    strEnergyTo = "";
+    strEnergyTo.clear();
     fDistSE = 10000; // TEMP very large value
 
     m_fDeltaPos = 0.03; // TEMP value. Set using SetMoveDischargeRate()
@@ -149,7 +149,7 @@ void CCharger::Init(TConfigurationNode& t_node) {
     sct->add_callback(this, std::string("EV_moveToCharge"), &CCharger::Callback_MoveToCharge, NULL, NULL);
     sct->add_callback(this, std::string("EV_shareEnergy"),  &CCharger::Callback_ShareEnergy,  NULL, NULL);
     sct->add_callback(this, std::string("EV_charge"),       &CCharger::Callback_Charge,       NULL, NULL);
-
+    sct->add_callback(this, std::string("EV_rest"),         &CCharger::Callback_Rest,         NULL, NULL);
 
     /* Register uncontrollable events */
     sct->add_callback(this, std::string("EV_atWork"),       NULL, &CCharger::Check_AtWork,       NULL);
@@ -157,7 +157,9 @@ void CCharger::Init(TConfigurationNode& t_node) {
     sct->add_callback(this, std::string("EV_atCharger"),    NULL, &CCharger::Check_AtCharger,    NULL);
     sct->add_callback(this, std::string("EV_notAtCharger"), NULL, &CCharger::Check_NotAtCharger, NULL);
     sct->add_callback(this, std::string("EV_lowEnergy"),    NULL, &CCharger::Check_LowEnergy,    NULL);
-    sct->add_callback(this, std::string("EV_highEnergy"),   NULL, &CCharger::Check_HighEnergy,   NULL);
+    sct->add_callback(this, std::string("EV_timeToCharge"), NULL, &CCharger::Check_TimeToCharge, NULL);
+    sct->add_callback(this, std::string("EV_chargedW"),     NULL, &CCharger::Check_ChargedW,     NULL);
+    sct->add_callback(this, std::string("EV_timeToWork"),   NULL, &CCharger::Check_TimeToWork,   NULL);
 
     Reset();
 }
@@ -210,6 +212,20 @@ std::string CCharger::GetLastAction() const {
 /****************************************/
 /****************************************/
 
+void CCharger::SetTimestepToChargeAtBase(UInt32 un_duration) {
+    m_unTimestepToChargeAtBase = un_duration;
+}
+
+/****************************************/
+/****************************************/
+
+void CCharger::SetTimestepToRestAtBase(UInt32 un_duration) {
+    m_unTimestepToRestAtBase = un_duration;
+}
+
+/****************************************/
+/****************************************/
+
 bool CCharger::IsMoving() const {
     return bMoving;
 }
@@ -231,7 +247,35 @@ bool CCharger::IsSharingEnergy() const {
 /****************************************/
 /****************************************/
 
-std::string CCharger::GetEnergyTo() const {
+void CCharger::SetChargingRegion(const CVector2& c_pos) {
+    cChargingPosition = c_pos;
+}
+
+/****************************************/
+/****************************************/
+
+void CCharger::SetWorkingRegion(const CVector2& c_pos) {
+    cWorkingPosition = c_pos;
+}
+
+/****************************************/
+/****************************************/
+
+Real CCharger::GetEnergyToCharger() const {
+    return m_fEnergyToCharger;
+}
+
+/****************************************/
+/****************************************/
+
+void CCharger::SetEnergyTo(const std::vector<std::string>& assignedWorkers) {
+    strAssignedWorkers = assignedWorkers;
+}
+
+/****************************************/
+/****************************************/
+
+std::vector<std::string> CCharger::GetEnergyTo() const {
     return strEnergyTo;
 }
 
@@ -281,7 +325,10 @@ void CCharger::ControlStep() {
         m_pcLEDs->SetAllColors(CColor::BLACK);
         m_pcWheels->SetLinearVelocity(0.0f, 0.0f);
         bMoving = false;
+        bSharingEnergy = false;
+        strEnergyTo.clear();
         // bPerformingTask = false;
+        RLOG << "Energy depleted" << std::endl;
         return;
     }
 
@@ -318,6 +365,10 @@ void CCharger::ControlStep() {
     /* Implement action to perform */
     /*-----------------------------*/
 
+    /* Update variable */
+    bPrevSharingEnergy = !strEnergyTo.empty();
+
+    /* Create message to broadcast */
     Message msg = Message();
 
     msg.state = currentState;
@@ -374,9 +425,9 @@ void CCharger::ControlStep() {
     /* Energy Message */
     EnergyMsg emsg = EnergyMsg();
     emsg.requestingEnergy = Check_LowEnergy(nullptr);
-    if(Check_LowEnergy(nullptr))
+    if(emsg.requestingEnergy)
         emsg.energyLevel = 'L';
-    else if(Check_HighEnergy(nullptr))
+    else if(fEnergy >= fEnergyHighThres)
         emsg.energyLevel = 'H';
     // emsg.owner = this->GetId();
     // emsg.state = currentState;
@@ -404,7 +455,7 @@ void CCharger::ResetVariables() {
 
     /* Energy sharing */
     bOtherLowEnergy = false;
-    bAgreedToShareEnergy = false;
+    bAgreedToShareEnergy.clear();
     fDistSE = 10000;
 
     lastControllableAction = "";
@@ -445,56 +496,50 @@ void CCharger::Update() {
     CVector2 pos2d = CVector2(pos3d.GetX(), pos3d.GetY());
 
     /* Distance to charging area */
-    Real fChargingAreaX = -0.5;
-    m_fDistToCharger = pos2d.GetX() - fChargingAreaX;
+    m_fDistToCharger = pos2d.GetX() - cChargingPosition.GetX();
+    m_fEnergyToCharger = ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 10) * (m_fWorkerMaxCapacity / m_fChargerMaxCapacity) / m_fWorkerMaxCapacity; // +10 units of energy for buffer
 
     /* Check whether there are any workers who are requesting energy */
     if( !bSharingEnergy ) { 
         // Don't search for workers requesting energy when its own energy is low
-        strEnergyTo = "";
+        strEnergyTo.clear();
     } else {
-        // 1) Check the distance to the current target (follower) it wants to share energy to
-            // 1-1) Stop sharing energy if the target has high energy
-        // 2) Check the current target (connector still requires energy)
-            // 2-1) Stop sharing energy if the target has high energy or already receiving energy from another robot
-        // 3) Search for low energy connectors
-        // 4) Search for signal from leader
-
-        for(const auto& msg : workerMsgs) {
-            if(strEnergyTo == msg.ID) {
-                if( !msg.emsg.requestingEnergy || msg.emsg.from != this->GetId() ) {
-                    strEnergyTo = "";
-                } else {
-                    fDistSE = msg.direction.Length();
-                    bAgreedToShareEnergy = true;
-                    RLOG << "Found worker requesting energy " << msg.ID << std::endl;
-                }
-                break;
-            }
-        }
-
-        if( !strEnergyTo.empty() && !bAgreedToShareEnergy ) {
-            /* Follower was not found. reset */
-            strEnergyTo = "";
-        }
-
-        if(strEnergyTo.empty() && Check_AtWork(nullptr)) {
-            Message closestRequest;
+        if(Check_AtWork(nullptr)) {
             for(const auto& msg : workerMsgs) {
-                // RLOG << "msg.ID: " << msg.ID << " level " << msg.emsg.energyLevel << " " << msg.emsg.from.empty() << std::endl;
-                // msg.Print();
-                if(msg.emsg.requestingEnergy && msg.emsg.from.empty()) {
-                    if(closestRequest.Empty() || msg.direction.Length() < closestRequest.direction.Length()) {
-                        closestRequest = msg;
-                        strEnergyTo = msg.ID;
+
+                /* Check if msg.ID is in assignedWorkers */
+                if(std::find(strAssignedWorkers.begin(), strAssignedWorkers.end(), msg.ID) != strAssignedWorkers.end()) {
+                
+                    // RLOG << "msg.ID: " << msg.ID << " level " << msg.emsg.energyLevel << " " << msg.emsg.from.empty() << std::endl;
+                    // msg.Print();
+                    if(msg.emsg.requestingEnergy && msg.emsg.from.empty() && std::find(strEnergyTo.begin(), strEnergyTo.end(), msg.ID) == strEnergyTo.end()) {
+                        strEnergyTo.push_back(msg.ID);
                         fDistSE = msg.direction.Length();
-                        bAgreedToShareEnergy = true;
+                        bAgreedToShareEnergy[msg.ID] = true;
                         RLOG << "Found worker requesting energy " << msg.ID << ", dist=" << fDistSE << std::endl;
+                    } else if(!msg.emsg.requestingEnergy && std::find(strEnergyTo.begin(), strEnergyTo.end(), msg.ID) != strEnergyTo.end()) {
+                        strEnergyTo.erase(std::remove(strEnergyTo.begin(), strEnergyTo.end(), msg.ID), strEnergyTo.end());
+                        bAgreedToShareEnergy[msg.ID] = false;
                     }
                 }
             }
         }
     }
+
+    /* Stay at the base for a predefined duration */
+    // When it is inside the base, decrement the timer
+    // When it is not inside the base, reset the timer to non-zero
+    if(Check_AtCharger(nullptr)) {
+        if(m_unRemainingTimestepToRestAtBase > 0) {
+            m_unRemainingTimestepToRestAtBase--;
+            RLOG << "Resting at base, remaining timesteps: " << m_unRemainingTimestepToRestAtBase << std::endl;
+        }
+    } else {
+        m_unRemainingTimestepToRestAtBase = m_unTimestepToRestAtBase + m_unTimestepToChargeAtBase;
+    }
+
+    prevEnergy = fEnergy;
+
 }
 
 /****************************************/
@@ -566,17 +611,17 @@ void CCharger::Travel() {
     repulseMsgs.insert(std::end(repulseMsgs), std::begin(workerMsgs), std::end(workerMsgs));
     repulseMsgs.insert(std::end(repulseMsgs), std::begin(chargerMsgs), std::end(chargerMsgs));
 
-    /* Search for target to share energy */
-    if(Check_AtWork(nullptr)) {
-        for(const auto& msg : workerMsgs) {
-            if(strEnergyTo == msg.ID) {
-                /* Don't move when target is nearby */
-                m_pcWheels->SetLinearVelocity(0.0f, 0.0f);
-                bMoving = false;
-                return;
-            }
-        }
-    }
+    // /* Search for target to share energy */
+    // if(Check_AtWork(nullptr)) {
+    //     for(const auto& msg : workerMsgs) {
+    //         if(std::find(strEnergyTo.begin(), strEnergyTo.end(), msg.ID) != strEnergyTo.end()) {
+    //             /* Don't move when target is nearby */
+    //             m_pcWheels->SetLinearVelocity(0.0f, 0.0f);
+    //             bMoving = false;
+    //             return;
+    //         }
+    //     }
+    // }
 
     /* Calculate overall force applied to the robot */
     CVector2 travelForce   = GetTravelVector();
@@ -632,14 +677,11 @@ CVector2 CCharger::GetTravelVector() {
     CRadians cZAngle, cYAngle, cXAngle;
     m_pcPosSens->GetReading().Orientation.ToEulerAngles(cZAngle, cYAngle, cXAngle);
 
-    Real fWorkAreaX = 0.25; // TEMP hard-coded value
-    Real fChargingAreaX = -0.535;
-
     CVector2 desiredPosition;
     if(currentMoveType == MoveType::MOVE_TO_WORK) {
-        desiredPosition = CVector2(fWorkAreaX, pos2d.GetY());
+        desiredPosition = cWorkingPosition;
     } else if(currentMoveType == MoveType::MOVE_TO_CHARGE) {
-        desiredPosition = CVector2(fChargingAreaX, pos2d.GetY());
+        desiredPosition = cChargingPosition;
     }
 
     /* Calculate a normalized vector that points to the next waypoint */
@@ -680,7 +722,7 @@ void CCharger::MoveToShareEnergy() {
 
     bool bFoundTarget = false;
     for(const auto& msg : combinedMsgs) {
-        if(msg.ID == strEnergyTo) {
+        if(std::find(strEnergyTo.begin(), strEnergyTo.end(), msg.ID) != strEnergyTo.end()) {
             shareEnergyMsg = msg;
             bFoundTarget = true;
             break;
@@ -851,13 +893,20 @@ void CCharger::Callback_Charge(void* data) {
     RLOG << "ACTION: charge" << std::endl;
 }
 
+void CCharger::Callback_Rest(void* data) {
+    lastControllableAction = "rest";
+    bCharging = false;
+    bSharingEnergy = false;
+    RLOG << "ACTION: rest" << std::endl;
+}
+
 /****************************************/
 /****************************************/
 
 /* Callback functions (Uncontrollable events) */
 
 unsigned char CCharger::Check_AtWork(void* data) {
-    if(m_pcGround->GetReadings()[0] == CColor(191,191,255).ToGrayScale() / 255.0f) {
+    if(m_pcGround->GetReadings()[0] == CColor(191,255,191).ToGrayScale() / 255.0f) {
         // RLOG << "Event: atWork " << 1 << std::endl;
         return true;
     }
@@ -866,7 +915,7 @@ unsigned char CCharger::Check_AtWork(void* data) {
 }
 
 unsigned char CCharger::Check_NotAtWork(void* data) {
-    if(m_pcGround->GetReadings()[0] == CColor(191,191,255).ToGrayScale() / 255.0f) {
+    if(m_pcGround->GetReadings()[0] == CColor(191,255,191).ToGrayScale() / 255.0f) {
         // RLOG << "Event: notAtWork " << 0 << std::endl;
         return false;
     }
@@ -875,7 +924,7 @@ unsigned char CCharger::Check_NotAtWork(void* data) {
 }
 
 unsigned char CCharger::Check_AtCharger(void* data) {
-    if(m_pcGround->GetReadings()[0] == CColor(191,255,191).ToGrayScale() / 255.0f) {
+    if(m_pcGround->GetReadings()[0] == CColor(191,191,255).ToGrayScale() / 255.0f) {
         // RLOG << "Event: atCharger " << 1 << std::endl;
         return true;
     }
@@ -884,7 +933,7 @@ unsigned char CCharger::Check_AtCharger(void* data) {
 }
 
 unsigned char CCharger::Check_NotAtCharger(void* data) {
-    if(m_pcGround->GetReadings()[0] == CColor(191,255,191).ToGrayScale() / 255.0f) {
+    if(m_pcGround->GetReadings()[0] == CColor(191,191,255).ToGrayScale() / 255.0f) {
         // RLOG << "Event: notAtCharger " << 0 << std::endl;
         return false;
     }
@@ -897,8 +946,10 @@ unsigned char CCharger::Check_LowEnergy(void* data) {
     // RLOG << "m_fDistToCharger: " << m_fDistToCharger << std::endl;
     // RLOG << "m_sWheelTurningParams.MaxSpeed: " << m_sWheelTurningParams.MaxSpeed/100 << std::endl;
     // RLOG << "m_fDeltaPos: " << m_fDeltaPos << std::endl;
-    // RLOG << "energyToReturn: " << (m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) << std::endl;
-    bool lowEnergy = fEnergy < ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 10) * (m_fWorkerMaxCapacity / m_fChargerMaxCapacity) / 100;
+    // RLOG << "energyToReturn: " << ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 10) * (m_fWorkerMaxCapacity / m_fChargerMaxCapacity) / 100 << std::endl;
+    // RLOG << "fEnergy: " << fEnergy << std::endl;
+    // bool lowEnergy = fEnergy < ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 10) * (m_fWorkerMaxCapacity / m_fChargerMaxCapacity) / 100;
+    bool lowEnergy = fEnergy <= m_fEnergyToCharger;
     // RLOG << "Event: lowEnergy " << lowEnergy << std::endl;
     // if(GetId() == "C1") {
     //     RLOG << "m_fDeltaPos: " << m_fDeltaPos << std::endl;
@@ -906,14 +957,26 @@ unsigned char CCharger::Check_LowEnergy(void* data) {
     //     RLOG << "return at: " << ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 10) << std::endl;
     //     RLOG << "est: " << ((m_fDistToCharger / (m_sWheelTurningParams.MaxSpeed / 100)) * (m_fDeltaPos * 10) + 10) * (m_fWorkerMaxCapacity / m_fChargerMaxCapacity) / 100 << std::endl;
     // }
+    // RLOG << "Event: lowEnergy " << lowEnergy << std::endl;
     return lowEnergy;
 }
 
-unsigned char CCharger::Check_HighEnergy(void* data) {
-    /* Return true when the current energy is above the higher threshold */
-    bool highEnergy = fEnergy >= fEnergyHighThres;
-    // RLOG << "Event: highEnergy " << highEnergy << std::endl;
-    return highEnergy;
+unsigned char CCharger::Check_TimeToCharge(void* data) {
+    /* Return true when the time to charge at base has elapsed */
+    // RLOG << "m_unRemainingTimestepToRestAtBase: " << m_unRemainingTimestepToRestAtBase << ", m_unTimestepToChargeAtBase: " << m_unTimestepToChargeAtBase << ", fEnergy: " << fEnergy << std::endl;
+    // RLOG << "cond: " << (m_unRemainingTimestepToRestAtBase < m_unTimestepToChargeAtBase || fEnergy < (0.1 / m_fChargerMaxCapacity)) << std::endl;
+    return m_unRemainingTimestepToRestAtBase <= m_unTimestepToChargeAtBase || fEnergy < (0.1 / m_fChargerMaxCapacity);
+}
+
+unsigned char CCharger::Check_ChargedW(void* data) {
+    /* Return true when it has stopped sharing energy */
+    bool noWorkerRequesting = bPrevSharingEnergy && strEnergyTo.empty();
+    return noWorkerRequesting;
+}
+
+unsigned char CCharger::Check_TimeToWork(void* data) {
+    /* Return true when the time to rest at base has elapsed */
+    return m_unRemainingTimestepToRestAtBase == 0;
 }
 
 /*

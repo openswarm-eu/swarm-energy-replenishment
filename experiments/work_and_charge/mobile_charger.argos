@@ -6,9 +6,9 @@
   <!-- ************************* -->
   <framework>
     <system threads="0" />
-    <experiment length="600"
+    <experiment length="604800"
                 ticks_per_second="10"
-random_seed='876' />
+                random_seed='876' />
   </framework>
 
   <!-- *************** -->
@@ -21,8 +21,8 @@ random_seed='876' />
     <worker_mc_controller id="worker_mc"
                                         library="build/controllers/worker/libworker.so">
       <actuators>
-        <differential_steering implementation="default" 
-                               factor_stddev="0.1"/>
+        <differential_steering implementation="default" />
+                               <!-- factor_stddev="0.1" -->
         <range_and_bearing implementation="default" />
         <leds implementation="default" medium="leds" />
       </actuators>
@@ -37,26 +37,28 @@ random_seed='876' />
         <wheel_turning hard_turn_angle_threshold="90"
                        soft_turn_angle_threshold="70"
                        no_turn_angle_threshold="10"
-                       max_speed="12" />
+                       max_speed="12.0" />
         <team_flocking target_distance="10"
-                  gain="1000"
-                  exponent="12" />
+                       gain="1000"
+                       exponent="12" />
         <traveler attract="1"
-                  repulse="1"
-                  obstacle="1" />
+                  repulse="0.0"
+                  obstacle="0.0" />
         <SCT path="src/SCT_models/work_and_charge(worker_mc)/supervisor.yaml" />
         <!-- Battery sensor returns energy level in range [0, 1] -->
-        <energy low_thres="0.1" 
-                high_thres="0.99" 
-                share_dist="14" />
+        <!-- <energy low_thres="0.1" 
+                high_thres="0.35" 
+                share_dist="58.3"
+                work_per_step="0.1" /> -->
+        <energy share_dist="58.3" />
       </params>
     </worker_mc_controller>
 
     <charger_controller id="charger"
                                         library="build/controllers/charger/libcharger.so">
       <actuators>
-        <differential_steering implementation="default" 
-                               factor_stddev="0.1"/>
+        <differential_steering implementation="default" />
+                               <!-- factor_stddev="0.1" -->
         <range_and_bearing implementation="default" />
         <leds implementation="default" medium="leds" />
       </actuators>
@@ -68,21 +70,22 @@ random_seed='876' />
         <positioning implementation="default" />   
       </sensors>
       <params>
-        <wheel_turning hard_turn_angle_threshold="90"
-                       soft_turn_angle_threshold="70"
-                       no_turn_angle_threshold="10"
-                       max_speed="12" />
+        <wheel_turning hard_turn_angle_threshold="45"
+                       soft_turn_angle_threshold="44"
+                       no_turn_angle_threshold="5"
+                       max_speed="12.0" />
         <team_flocking target_distance="10"
                        gain="1000"
                        exponent="12" />
         <traveler attract="1"
-                  repulse="1"
-                  obstacle="1" />
+                  repulse="0.5"
+                  obstacle="0.5" />
         <SCT path="src/SCT_models/work_and_charge(charger)/supervisor.yaml" />
         <!-- Battery sensor returns energy level in range [0, 1] -->
-        <energy low_thres="0.1" 
-                high_thres="0.99" 
-                share_dist="14" />
+        <!-- <energy low_thres="0.05" 
+                high_thres="1" 
+                share_dist="58.3" /> -->
+        <energy share_dist="58.3" />
       </params>
     </charger_controller>
 
@@ -96,7 +99,7 @@ random_seed='876' />
 
     <!-- Output path -->
     <output logging="true"
-            out_path='results/work_and_charge/mobile_4C_200E_001/'
+            out_path='results/work_and_charge/mobile_W_C_E_R_L_001/'
             frame_grabbing="false" 
             camera_index="0" />
 
@@ -112,21 +115,25 @@ random_seed='876' />
     <battery_model  discharge_model="fixed_time_motion" 
                     full_charge_worker="100" 
                     start_charge_worker="100,100"
-                    full_charge_charger="200" 
-                    start_charge_charger="200,200"
-                    delta_time="0.0"
+                    full_charge_charger="500" 
+                    start_charge_charger="500,500"
+                    delta_time="0.0005"
                     delta_pos_worker="0.1"
                     delta_pos_charger="0.1"/>
     <!-- 2. Extra battery model details about how the battery is charged/discharged -->
-    <extra_battery_info delta_work="0.1"
-                        delta_recharge="1"
-                        delta_transfer_loss="0"/>
+    <extra_battery_info delta_work="0.300"
+                        delta_recharge="1.000"
+                        delta_transfer_efficiency="0.500"
+                        work_per_step="0.1" />
+
+    <!-- Time in seconds required to commute between working region and charging region -->
+    <commute_region travel_duration="15.0" />
 
     <!-- Distribute workers and chargers -->
     <distribute>
       <!-- <position min="-0.7,-0.8" max="-0.8,0.8" /> -->
-      <e-puck controller="worker_mc" num_robots="6"/>
-      <e-puck_charger controller="charger" num_robots="4"/>
+      <e-puck controller="worker_mc" num_robots="9"/>
+      <e-puck_charger controller="charger" num_robots="1"/>
     </distribute>
 
   </loop_functions>
@@ -134,23 +141,23 @@ random_seed='876' />
   <!-- *********************** -->
   <!-- * Arena configuration * -->
   <!-- *********************** -->
-  <arena size="2.5, 2.5, 1" center="0,0,0.5">
+  <arena size="5.200,2,1" center="0,0,0.5">
 
     <floor id="floor"
            source="loop_functions"
-           pixels_per_meter="200" />
+           pixels_per_meter="100" />
 
-    <box id="wall_west" size="0.05,1.7,0.2" movable="false">
-      <body position="-0.825,0,0" orientation="0,0,0" />
+    <box id="wall_west" size="0.05,1.1,0.2" movable="false">
+      <body position="-2.10000000000000000000,0,0" orientation="0,0,0" />
     </box>
-    <box id="wall_east" size="0.05,1.7,0.2" movable="false">
-      <body position="0.825,0,0" orientation="0,0,0" />
+    <box id="wall_east" size="0.05,1.1,0.2" movable="false">
+      <body position="2.10000000000000000000,0,0" orientation="0,0,0" />
     </box>
-    <box id="wall_north" size="1.6,0.05,0.2" movable="false">
-      <body position="0,0.825,0" orientation="0,0,0" />
+    <box id="wall_north" size="4.200,0.05,0.2" movable="false">
+      <body position="0,0.525,0" orientation="0,0,0" />
     </box>
-    <box id="wall_south" size="1.6,0.05,0.2" movable="false">
-      <body position="0,-0.825,0" orientation="0,0,0" />
+    <box id="wall_south" size="4.200,0.05,0.2" movable="false">
+      <body position="0,-0.525,0" orientation="0,0,0" />
     </box>
 
   </arena>
@@ -184,17 +191,18 @@ random_seed='876' />
       <!-- <frame_grabbing directory="frames"
                       base_name="frame_"
                       format="png"
-                      quality="100"
-                      headless_grabbing="false"
+                      quality="50"
+                      headless_grabbing="true"
                       headless_frame_size="1600x1200"
-                      headless_frame_rate="1"/> -->
+                      headless_frame_rate="10"/> -->
 
       <user_functions library="build/loop_functions/leaderworker_loop_functions/libleaderworker_loop_functions"
                       label="manualcontrol_qtuser_functions_nop" />
 
       <camera>
         <placements>
-          <placement index="0" position="0.0155856,-0.00519367,3.8988" look_at="0.0155856,-0.00519367,2.8988" up="0,1,0" lens_focal_length="58" />
+          <!-- <placement index="0" position="0.0155856,-0.00519367,3.8988" look_at="0.0155856,-0.00519367,2.8988" up="0,1,0" lens_focal_length="58" /> -->
+          <placement index="0" position="0.0831031,-0.00519367,10.4895" look_at="0.0831031,-0.00519367,9.48954" up="0,1,0" lens_focal_length="58" />        
         </placements>
       </camera>
 

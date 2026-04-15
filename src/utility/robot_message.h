@@ -41,13 +41,13 @@ struct EnergyMsg {
     // std::string owner = "";         // The ID of the robot sending the message
     // RobotState state;               // The state of the robot sending the message
     std::string from = "";          // The ID of the robot that it is receiving the energy from
-    std::string to = "";            // The ID of the robot that it is sending the energy to
+    std::vector<std::string> to;            // The ID of the robot that it is sending the energy to
 };
 
 /*
 * Communication buffer size
 */
-static const UInt32 MESSAGE_BYTE_SIZE = 8;
+static const UInt32 MESSAGE_BYTE_SIZE = 100;
 
 /* 
 * Structure to store incoming data received from other robots 
